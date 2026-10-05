@@ -4,6 +4,8 @@ import sys
 
 from PySide6.QtWidgets import QApplication
 
+from megafon_desktop import __version__
+
 from megafon_desktop.infra.db import Database
 from megafon_desktop.infra.paths import database_path
 from megafon_desktop.infra.secret_store import WindowsDpapiSecretStore
@@ -22,6 +24,7 @@ def build_service() -> AccountService:
 def main() -> int:
     app = QApplication(sys.argv)
     app.setApplicationName("Megafon Desktop")
+    app.setApplicationVersion(__version__)
     window = MainWindow(build_service())
     window.show()
     return app.exec()
