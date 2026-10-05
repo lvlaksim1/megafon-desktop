@@ -1,31 +1,38 @@
 # Latest handoff
 
-## Current conclusion
+## Current release
 
-v0.2.0's authorization path is not compatible with the full current B2C web-LK protocol. The owner supplied a fresh browser network capture showing the missing request context and successful CAPTCHA flow. Do not patch the existing simplified login blindly; replace it with the verified state machine.
+**Megafon Desktop v0.2.1** is published.
 
-## Verified B2C flow
+- Installer: `MegafonDesktop-Update-v0.2.1.exe`
+- Size: 37,542,042 bytes
+- SHA-256: `ca81682b6404fcd32bd6e811b203e0e68f24ba29a953593e0b88c6db886c77d9`
+- Release target: `d4dba41cb0acfc4a06267c773b1a0014fc65dd7f`
+- Only the latest release is retained.
 
-- Runtime requirement: HTTP-only; no browser/Playwright runtime or fallback.
-- No automatic account refresh at application startup.
-- Manual refresh restores per-account auth state and first checks `/api/auth/sessionCheck`.
-- Current frontend-derived request metadata includes `X-Cabinet-Id-Param`, `X-Cabinet-Check-Info`, `X-Cabinet-Validation-Param`.
-- Password CAPTCHA flow is: login -> `a211` -> GET CAPTCHA image -> repeat login with CAPTCHA in the same HTTP session -> authenticated.
-- Save the cookie jar immediately after successful authentication, before data reads.
-- The observed successful login creates short-lived access/id token cookies (~1200 s) plus long-lived `X-Cabinet-Refresh-Token` (~90 days), CSRF cookies, JSESSIONID and identity cookies.
-- Exact refresh-token exchange after short-token expiry is still an evidence gap. The current capture is too short; do not invent refresh behavior.
+## Implemented auth model
 
-## External cross-check
+- B2C consumer cabinet only; no B2B or official API.
+- HTTP-only runtime; no browser/Playwright fallback.
+- No automatic refresh at startup.
+- Frontend bootstrap: `/public/rwlk/service-worker.js` -> active `app.<hash>.js` -> dynamic X-Cabinet parameters.
+- Manual refresh checks `/api/auth/sessionCheck` and validates the requested phone.
+- CAPTCHA flow stays in the same HTTP session: login -> `a211` -> image -> login with CAPTCHA.
+- Save the cookie jar immediately after successful auth, before data reads.
+- Update installs preserve per-account DPAPI-protected passwords/auth state.
 
-Current/recent consumer reverse implementations (`Unlicensed-ZZZ/MobileBalance`, `dukei/any-balance-providers`) independently confirm sessionCheck, CAPTCHA continuation and dynamic X-Cabinet frontend metadata. MBplugin's current browser approach is useful as research evidence but is not the product runtime model.
+## UI in v0.2.1
 
-## Required next UI changes
+- Per-account **Обновить**.
+- Global **Обновить всё**.
+- Per-account **Удалить** with password/session cleanup.
+- Removed **Обновить выбранные**.
+- Removed toolbar logo beside **Добавить номер**; system/application icon remains.
 
-- Add delete-account with password/auth-state cleanup.
-- Remove toolbar logo beside **Добавить номер**.
-- Remove **Обновить выбранные**.
-- Keep per-account **Обновить**, **Обновить всё**, and application/system icon.
+## Refresh token
 
-## Release policy
+Do not implement by inference and do not run expiry experiments. Owner requires a proven source of truth for the current B2C refresh mechanism before implementation.
 
-All subsequent releases remain executable `MegafonDesktop-Update-vX.Y.Z.exe` installers and must preserve `%LOCALAPPDATA%\MegaFonDesktop` during updates.
+## Build path
+
+GitHub-hosted final jobs were cancelled before running. The trusted PC Runner Gateway built and published v0.2.1 successfully from exact SHA and is now allowlisted for Megafon Desktop `repo.powershell` tasks.
