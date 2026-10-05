@@ -1,8 +1,11 @@
 # Manager beliefs
 
-- Megafon Desktop is a standalone native Windows application for consumer MegaFon accounts; browser-extension and B2B approaches are explicitly out of scope.
+- Megafon Desktop is the authoritative standalone native Windows application for consumer MegaFon accounts; browser-extension and B2B approaches are explicitly out of scope.
   - source: owner directive, 2026-10-05
   - authority: owner-directive
+- The authoritative product repository is `lvlaksim1/megafon-desktop`. The earlier `lvlaksim1/megafon-manager` repository is legacy/migration material only and must not receive new product releases.
+  - source: owner directive and verified repository state, 2026-10-05
+  - authority: owner-directive + verified-repository
 - The behavioral specification is assembled from the owner's legacy VBA, relevant public projects, and browser network logs the owner will provide later.
   - source: owner directive, 2026-10-05
   - authority: owner-directive
@@ -12,9 +15,18 @@
 - MBplugin's current MegaFon implementation demonstrates a useful resilience pattern: authenticate through the real LK in a persistent Playwright profile and collect JSON network responses for known resources.
   - source: public `artyl/mbplugin` repository studied 2026-10-05
   - authority: trusted-external
-- Product `main` contains the native vertical slice, Playwright response capture, and fixture-driven parsers for MBplugin-observed remainder/service shapes plus recursive expense events. Eleven local unit tests and Python compilation pass.
-  - source: verified repository worktree and local test run, 2026-10-05
+- Product `main` contains the native vertical slice, Playwright response capture, redacted HAR diagnostics, and fixture-driven parsers for MBplugin-observed remainder/service shapes plus recursive expense events.
+  - source: verified repository, 2026-10-05
   - authority: verified-repository
+- Windows CI for release commit `8f8c8a316ff0a79a869bc191d6e58aff5cc01f7a` completed successfully with 14 tests passing and ruff passing. Windows installer workflow run `37340148966` also completed successfully.
+  - source: GitHub Actions runs, 2026-10-05
+  - authority: verified-repository-runtime
+- Initial Windows installer `MegafonDesktop-Setup-v0.1.0.exe` is published in GitHub Release `v0.1.0`; asset SHA-256 is `9a86fa0b5897ee19b553fc8d954fcf424471e9545fc78f04fcd30bc91c53bcf8`.
+  - source: GitHub Release 403913490, 2026-10-05
+  - authority: verified-repository
+- Owner requires all subsequent updates to be delivered as executable update installers. `RELEASE_KIND` is therefore set to `Update` after the initial setup release.
+  - source: owner directive, 2026-10-05, and repository configuration
+  - authority: owner-directive + verified-repository
 - Current browser selectors and mutation contracts have not yet been verified against the owner's fresh browser logs; therefore real-account mutations remain gated.
   - source: current project evidence, 2026-10-05
   - authority: manager-inference
