@@ -1,38 +1,35 @@
 # Manager beliefs
 
-- Megafon Desktop is the authoritative standalone native Windows application for **consumer/B2C** MegaFon accounts. B2B and official/public MegaFon APIs are explicitly out of scope for protocol research.
-  - source: owner directive, 2026-10-05
+- Megafon Desktop is the standalone native Windows application for **consumer/B2C** MegaFon accounts. B2B and official/public MegaFon APIs are explicitly out of scope.
+  - source: owner directive
   - authority: owner-directive
-- The authoritative product repository is `lvlaksim1/megafon-desktop`; `lvlaksim1/megafon-manager` is legacy/migration material only.
-  - source: owner directive and verified repository state, 2026-10-05
-  - authority: owner-directive + verified-repository
-- Product runtime must be independent of browsers. Browser/Playwright tooling may be used to capture/research the consumer web cabinet, but never as runtime auth or fallback.
-  - source: owner directive, 2026-10-05
+- The authoritative product repository is `lvlaksim1/megafon-desktop`.
+  - source: verified repository state
+  - authority: verified-repository
+- Product runtime must be independent of browsers. Browser tooling is research/capture only.
+  - source: owner directive
   - authority: owner-directive
-- Network refresh is always user-triggered. Startup must not refresh accounts automatically. Intended controls are per-account **Обновить** and global **Обновить всё**.
-  - source: owner directive, 2026-10-05
+- Network refresh is always user-triggered. Startup must not refresh accounts automatically. Controls are per-account **Обновить** and global **Обновить всё**.
+  - source: owner directive
   - authority: owner-directive
-- The owner's fresh network capture proves password CAPTCHA auth as one continuous HTTP session: login -> `a211` -> `/api/captcha/next` -> repeated login with CAPTCHA -> authenticated session.
-  - source: owner-supplied browser network capture, 2026-10-05
+- The owner's capture proves CAPTCHA auth as one continuous HTTP session: login -> `a211` -> `/api/captcha/next` -> repeated login with CAPTCHA -> authenticated.
+  - source: owner-supplied capture
   - authority: owner-evidence
-- Current consumer web-LK traffic requires dynamic frontend-derived `X-Cabinet-Id-Param`, `X-Cabinet-Check-Info`, and `X-Cabinet-Validation-Param`. These are observable in the current web frontend and should be discovered dynamically rather than hard-coded.
-  - source: owner capture + current public B2C reverse implementations, 2026-10-05
+- Current B2C traffic requires dynamic frontend-derived `X-Cabinet-Id-Param`, `X-Cabinet-Check-Info`, and `X-Cabinet-Validation-Param`; current MobileBalance independently confirms discovery through `/public/rwlk/service-worker.js` and active `app.<hash>.js`.
+  - source: owner capture + current public B2C reverse implementation
   - authority: owner-evidence + trusted-external
-- Fresh `Unlicensed-ZZZ/MobileBalance` work from late September 2026 independently documents the July/September 2026 transition to frontend-derived X-Cabinet headers and away from the previous explicit JWT header pattern. `dukei/any-balance-providers` independently demonstrates sessionCheck, CAPTCHA continuation and dynamic X-Cabinet extraction.
-  - source: public repositories researched 2026-10-05
-  - authority: trusted-external
-- Correct session reuse should restore the per-account cookie jar, then call `/api/auth/sessionCheck` and verify the returned phone before using it.
-  - source: owner capture + public B2C reverse implementations
-  - authority: manager-inference backed by external evidence
-- The observed successful login sets `X-Cabinet-Access-Token` and `X-Cabinet-Id-Token` with ~1200-second lifetime, plus a long-lived HttpOnly `X-Cabinet-Refresh-Token` with ~7776000-second lifetime. The refresh token is therefore intended to outlive the short access/id pair, but the exact renewal exchange is not proven by the present short capture.
-  - source: owner-supplied browser capture cookie evidence, 2026-10-05
-  - authority: owner-evidence
-- v0.2.0's auth code is known flawed: it does not implement the current bootstrap/sessionCheck model and persists session state only after data reads, so a successful login can be lost if the subsequent data call fails.
-  - source: verified repository code compared with owner capture, 2026-10-05
-  - authority: verified-repository + owner-evidence
-- Owner requires account deletion, removal of the toolbar logo beside **Добавить номер**, and removal of **Обновить выбранные**; the application/system icon remains.
+- Session reuse is gated by `/api/auth/sessionCheck` and expected-phone validation.
+  - source: current public B2C reverse implementation + implemented contract
+  - authority: trusted-external + verified-repository
+- v0.2.1 fixes the v0.2.0 auth defects: dynamic bootstrap/sessionCheck are present and successful login is persisted before data reads.
+  - source: verified repository/release
+  - authority: verified-repository
+- Owner requires refresh-token renewal to be taken from a **proven source of truth**, not inferred from token lifetimes and not researched through expiry experiments.
   - source: owner directive, 2026-10-05
   - authority: owner-directive
-- All post-initial releases must remain executable update installers and must preserve app data/auth state across updates.
-  - source: owner directive and repository release policy
+- Account deletion must remove the DB row, saved password and saved HTTP auth state. **Обновить выбранные** and the toolbar logo beside **Добавить номер** are removed; system/application icon remains.
+  - source: owner directive + v0.2.1 implementation
   - authority: owner-directive + verified-repository
+- All post-initial releases are executable update installers preserving app data/auth state. v0.2.1 was successfully built/published via the trusted PC Runner Gateway at exact SHA `d4dba41cb0acfc4a06267c773b1a0014fc65dd7f`.
+  - source: verified release + PC Gateway result
+  - authority: verified-repository
