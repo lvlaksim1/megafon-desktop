@@ -21,7 +21,7 @@ def build_service() -> AccountService:
 
 def main() -> int:
     app = QApplication(sys.argv)
-    app.setApplicationName("MegaFon Desktop")
+    app.setApplicationName("Megafon Desktop")
     window = MainWindow(build_service())
     window.show()
     return app.exec()
