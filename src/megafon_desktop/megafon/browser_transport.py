@@ -138,7 +138,7 @@ class BrowserCaptureTransport:
             return
         try:
             capture.observe(response.url, response.status, response.json())
-        except Exception:
+        except (ValueError, playwright_error):
             return
 
     def refresh_snapshot(self, phone: str, password: str, account_id: int) -> AccountSnapshot:
@@ -173,7 +173,7 @@ class BrowserCaptureTransport:
                         page.wait_for_timeout(1_000)
                     except PlaywrightError:
                         # Optional collector page failed; core captured account data stays valid.
-                        continue  # noqa: S112
+                        continue
             finally:
                 context.close()
 

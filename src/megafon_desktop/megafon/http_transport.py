@@ -7,6 +7,7 @@ from typing import Any
 import requests
 
 from megafon_desktop.domain.models import AccountSnapshot
+
 from .errors import AccountBlocked, AuthenticationError, CaptchaRequired, ProtocolChanged
 
 
