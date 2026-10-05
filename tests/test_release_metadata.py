@@ -3,7 +3,6 @@ from pathlib import Path
 
 import megafon_desktop
 
-
 ROOT = Path(__file__).resolve().parents[1]
 
 
