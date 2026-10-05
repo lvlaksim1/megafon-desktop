@@ -16,9 +16,18 @@ The project replaces a legacy Excel/VBA workflow with a maintainable application
 
 ## Current status
 
-`v0.1` is the first vertical slice: account storage, Windows DPAPI secret storage, a direct
-HTTP login/balance transport, refresh orchestration and a native Qt account table.
-Browser-capture transport and the remaining management operations are the next stage.
+`v0.1.0` is the first installable Windows build: account storage, Windows DPAPI secret storage, a direct HTTP login/balance transport, refresh orchestration, native Qt account table and Playwright-based persistent-profile fallback groundwork.
+
+The authoritative repository is `lvlaksim1/megafon-desktop`. The earlier `megafon-manager` repository is legacy/migration material only.
+
+## Installation
+
+Windows releases are published as executable installers in GitHub Releases.
+
+- Initial installation: `MegafonDesktop-Setup-v0.1.0.exe`
+- Future versions: `MegafonDesktop-Update-vX.Y.Z.exe`
+
+Update installers use the same application identity and install directory, so they upgrade the installed application in place. See `docs/release.md`.
 
 ## Development
 
