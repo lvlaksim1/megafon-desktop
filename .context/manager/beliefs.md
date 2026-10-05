@@ -1,6 +1,6 @@
 # Manager beliefs
 
-- MegaFon Desktop is a standalone native Windows application for consumer MegaFon accounts; browser-extension and B2B approaches are explicitly out of scope.
+- Megafon Desktop is a standalone native Windows application for consumer MegaFon accounts; browser-extension and B2B approaches are explicitly out of scope.
   - source: owner directive, 2026-10-05
   - authority: owner-directive
 - The behavioral specification is assembled from the owner's legacy VBA, relevant public projects, and browser network logs the owner will provide later.
