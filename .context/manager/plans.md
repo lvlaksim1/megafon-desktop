@@ -1,9 +1,13 @@
 # Manager plans
 
-1. Treat `lvlaksim1/megafon-desktop` as the sole active product repository; keep `megafon-manager` only as legacy migration/history material.
-2. Continue M1 around the existing `ResponseCapture`: persistent profile lifecycle, robust login/manual-auth gates, parsers for tariff/remainders/services/expenses, and redacted diagnostic bundle ingestion.
-3. When the owner supplies fresh browser logs, reconcile observed consumer endpoints/selectors against legacy VBA and MBplugin before enabling mutations.
-4. Expand SQLite/domain models and native UI for options, expenses and personal offers; add deterministic fixture-driven tests.
-5. Add bounded-concurrency bulk refresh and progress/error isolation across accounts.
-6. Only after read paths are stable, implement and explicitly gate bill-affecting mutations.
-7. For every subsequent release, keep `RELEASE_KIND=Update`, bump `RELEASE_VERSION`, require green Windows CI, and publish `MegafonDesktop-Update-vX.Y.Z.exe` through the release workflow.
+1. Keep `lvlaksim1/megafon-desktop` as the sole active product repository.
+2. Treat B2C web-LK reverse traffic as the protocol authority; ignore B2B and official/public MegaFon API documentation for this product.
+3. Build an HTTP-only bootstrap that derives the current frontend request parameters from the active service-worker / `app.<hash>.js` assets.
+4. On manual refresh only, restore account auth state, call `/api/auth/sessionCheck`, verify account identity, and reuse the session if valid.
+5. If needed, perform password login and CAPTCHA in one preserved HTTP session and persist the resulting cookies immediately on authentication success.
+6. Persist any subsequent cookie/token rotations after authenticated calls.
+7. Specifically research refresh-token mechanics by obtaining evidence that spans expiry of the observed ~20-minute access/id tokens; determine whether renewal is implicit on an ordinary authenticated/sessionCheck request or uses a distinct endpoint, and whether the refresh token rotates.
+8. Base tests on redacted real-capture contracts rather than invented fake cookies/headers.
+9. Apply requested UI cleanup and account deletion with complete secret/session cleanup.
+10. Resume remainders/services/expenses/tariff only after authorization is stable; keep mutations gated.
+11. Publish each fixed version only as an executable update installer after green Windows CI.
