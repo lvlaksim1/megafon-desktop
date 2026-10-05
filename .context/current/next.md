@@ -1,12 +1,9 @@
 # Next actions
 
-1. Replace the v0.2.0 auth transport with the verified B2C web-LK state machine rather than patching the current simplified login.
-2. Implement HTTP bootstrap of the active web frontend: discover the current `app.<hash>.js` from service-worker/front-end metadata and extract current `X-Cabinet-Id-Param`, `X-Cabinet-Check-Info`, and `X-Cabinet-Validation-Param`.
-3. Restore the per-account DPAPI-protected cookie jar only on a user-triggered refresh, then call `/api/auth/sessionCheck`; reuse it only if `authenticated=true` and the account number matches.
-4. If login is required, keep one requests.Session for bootstrap -> login -> CAPTCHA image -> CAPTCHA submit -> authenticated session; save auth cookies immediately after successful login, before data reads.
-5. Research and verify refresh-token behavior. Current evidence shows a long-lived HttpOnly `X-Cabinet-Refresh-Token`, but the exact access-token renewal trigger/endpoint/rotation must be captured after short-lived access/id tokens expire.
-6. Make data calls with the current frontend-derived X-Cabinet headers and preserve any cookie rotations returned by the server.
-7. Add replay/contract tests based on redacted owner captures, including header propagation, CAPTCHA continuation, sessionCheck, token persistence, token expiry/refresh, and wrong-account session rejection.
-8. UI: add delete-account action (including secrets/auth-state deletion), remove **Обновить выбранные**, remove the toolbar logo beside **Добавить номер**, retain per-row **Обновить** and **Обновить всё**.
-9. Only after the auth path is verified against live owner evidence continue remainders/services/expenses/tariff and later mutations.
-10. Publish the next fixed release only as `MegafonDesktop-Update-vX.Y.Z.exe` after green Windows CI and evidence-based auth tests.
+1. Owner live-test v0.2.1 against a real B2C account: new account -> manual **Обновить** -> CAPTCHA when requested -> successful balance refresh -> close/reopen app -> manual refresh reuses the saved session.
+2. If live behavior differs, diagnose from the exact HTTP error and compare it against the supplied capture before changing the protocol implementation.
+3. Find a **proven source of truth** for the current B2C refresh-token mechanism. Do not run expiry experiments and do not invent an endpoint/rotation rule.
+4. Once refresh renewal is proven, implement it without changing the manual-refresh-only UX.
+5. After auth is live-confirmed, continue read-only B2C data: remainders, services, tariff, expenses and bounded multi-account refresh.
+6. Keep all bill-affecting mutations gated until their current contracts are independently verified.
+7. Continue delivering every version as `MegafonDesktop-Update-vX.Y.Z.exe`; PC Runner Gateway is now an available exact-SHA Windows release path.
