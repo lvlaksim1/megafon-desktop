@@ -1,6 +1,6 @@
 # Project identity
 
-**MegaFon Desktop** is a public Windows-native desktop application for managing multiple **consumer** MegaFon accounts.
+**Megafon Desktop** is a public Windows-native desktop application for managing multiple **consumer** MegaFon accounts.
 
 Repository: `lvlaksim1/megafon-desktop`.
 
