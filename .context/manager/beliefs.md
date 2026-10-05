@@ -1,32 +1,38 @@
 # Manager beliefs
 
-- Megafon Desktop is the authoritative standalone native Windows application for consumer MegaFon accounts; browser-extension and B2B approaches are explicitly out of scope.
+- Megafon Desktop is the authoritative standalone native Windows application for **consumer/B2C** MegaFon accounts. B2B and official/public MegaFon APIs are explicitly out of scope for protocol research.
   - source: owner directive, 2026-10-05
   - authority: owner-directive
-- The authoritative product repository is `lvlaksim1/megafon-desktop`. The earlier `lvlaksim1/megafon-manager` repository is legacy/migration material only and must not receive new product releases.
+- The authoritative product repository is `lvlaksim1/megafon-desktop`; `lvlaksim1/megafon-manager` is legacy/migration material only.
   - source: owner directive and verified repository state, 2026-10-05
   - authority: owner-directive + verified-repository
-- The behavioral specification is assembled from the owner's legacy VBA, relevant public projects, and browser network logs the owner will provide later.
+- Product runtime must be independent of browsers. Browser/Playwright tooling may be used to capture/research the consumer web cabinet, but never as runtime auth or fallback.
   - source: owner directive, 2026-10-05
   - authority: owner-directive
-- The legacy VBA demonstrates working/previously working consumer-LK contracts for login, balances, options, expenses, forwarding, tariff and personal offers, but undocumented contracts must be treated as volatile.
-  - source: owner-supplied VBA analysis, 2026-10-05
-  - authority: verified-repository-input
-- MBplugin's current MegaFon implementation demonstrates a useful resilience pattern: authenticate through the real LK in a persistent Playwright profile and collect JSON network responses for known resources.
-  - source: public `artyl/mbplugin` repository studied 2026-10-05
+- Network refresh is always user-triggered. Startup must not refresh accounts automatically. Intended controls are per-account **Обновить** and global **Обновить всё**.
+  - source: owner directive, 2026-10-05
+  - authority: owner-directive
+- The owner's fresh network capture proves password CAPTCHA auth as one continuous HTTP session: login -> `a211` -> `/api/captcha/next` -> repeated login with CAPTCHA -> authenticated session.
+  - source: owner-supplied browser network capture, 2026-10-05
+  - authority: owner-evidence
+- Current consumer web-LK traffic requires dynamic frontend-derived `X-Cabinet-Id-Param`, `X-Cabinet-Check-Info`, and `X-Cabinet-Validation-Param`. These are observable in the current web frontend and should be discovered dynamically rather than hard-coded.
+  - source: owner capture + current public B2C reverse implementations, 2026-10-05
+  - authority: owner-evidence + trusted-external
+- Fresh `Unlicensed-ZZZ/MobileBalance` work from late September 2026 independently documents the July/September 2026 transition to frontend-derived X-Cabinet headers and away from the previous explicit JWT header pattern. `dukei/any-balance-providers` independently demonstrates sessionCheck, CAPTCHA continuation and dynamic X-Cabinet extraction.
+  - source: public repositories researched 2026-10-05
   - authority: trusted-external
-- Product `main` contains the native vertical slice, Playwright response capture, redacted HAR diagnostics, and fixture-driven parsers for MBplugin-observed remainder/service shapes plus recursive expense events.
-  - source: verified repository, 2026-10-05
-  - authority: verified-repository
-- Windows CI for release commit `8f8c8a316ff0a79a869bc191d6e58aff5cc01f7a` completed successfully with 14 tests passing and ruff passing. Windows installer workflow run `37340148966` also completed successfully.
-  - source: GitHub Actions runs, 2026-10-05
-  - authority: verified-repository-runtime
-- Initial Windows installer `MegafonDesktop-Setup-v0.1.0.exe` is published in GitHub Release `v0.1.0`; asset SHA-256 is `9a86fa0b5897ee19b553fc8d954fcf424471e9545fc78f04fcd30bc91c53bcf8`.
-  - source: GitHub Release 403913490, 2026-10-05
-  - authority: verified-repository
-- Owner requires all subsequent updates to be delivered as executable update installers. `RELEASE_KIND` is therefore set to `Update` after the initial setup release.
-  - source: owner directive, 2026-10-05, and repository configuration
+- Correct session reuse should restore the per-account cookie jar, then call `/api/auth/sessionCheck` and verify the returned phone before using it.
+  - source: owner capture + public B2C reverse implementations
+  - authority: manager-inference backed by external evidence
+- The observed successful login sets `X-Cabinet-Access-Token` and `X-Cabinet-Id-Token` with ~1200-second lifetime, plus a long-lived HttpOnly `X-Cabinet-Refresh-Token` with ~7776000-second lifetime. The refresh token is therefore intended to outlive the short access/id pair, but the exact renewal exchange is not proven by the present short capture.
+  - source: owner-supplied browser capture cookie evidence, 2026-10-05
+  - authority: owner-evidence
+- v0.2.0's auth code is known flawed: it does not implement the current bootstrap/sessionCheck model and persists session state only after data reads, so a successful login can be lost if the subsequent data call fails.
+  - source: verified repository code compared with owner capture, 2026-10-05
+  - authority: verified-repository + owner-evidence
+- Owner requires account deletion, removal of the toolbar logo beside **Добавить номер**, and removal of **Обновить выбранные**; the application/system icon remains.
+  - source: owner directive, 2026-10-05
+  - authority: owner-directive
+- All post-initial releases must remain executable update installers and must preserve app data/auth state across updates.
+  - source: owner directive and repository release policy
   - authority: owner-directive + verified-repository
-- Current browser selectors and mutation contracts have not yet been verified against the owner's fresh browser logs; therefore real-account mutations remain gated.
-  - source: current project evidence, 2026-10-05
-  - authority: manager-inference
