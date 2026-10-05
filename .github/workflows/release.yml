@@ -9,6 +9,7 @@ on:
 
 permissions:
   contents: write
+  actions: write
 
 jobs:
   build-installer:
@@ -58,13 +59,6 @@ jobs:
           "INSTALLER_PATH=$installer" >> $env:GITHUB_ENV
           "INSTALLER_NAME=MegafonDesktop-$kind-v$version.exe" >> $env:GITHUB_ENV
 
-      - name: Upload workflow artifact
-        uses: actions/upload-artifact@v4
-        with:
-          name: MegafonDesktop-${{ env.RELEASE_KIND }}-v${{ env.RELEASE_VERSION }}
-          path: ${{ env.INSTALLER_PATH }}
-          if-no-files-found: error
-
       - name: Publish GitHub Release
         shell: pwsh
         env:
@@ -76,8 +70,12 @@ jobs:
 
           Windows installer: $env:INSTALLER_NAME
 
-          Installation is per-user under %LOCALAPPDATA%\Programs\Megafon Desktop.
-          Application data remains under %LOCALAPPDATA%\MegaFonDesktop.
+          This is a full-payload installer: it updates an existing installation in place and can
+          also install Megafon Desktop when no previous version is present.
+
+          Program: %LOCALAPPDATA%\Programs\Megafon Desktop
+          Application data: %LOCALAPPDATA%\MegaFonDesktop
+          Uninstall removes both locations and application-owned shortcuts/data.
           "@
           Set-Content -Path release-notes.txt -Value $notes -Encoding UTF8
 
@@ -89,4 +87,33 @@ jobs:
               --target $env:GITHUB_SHA `
               --title "Megafon Desktop $tag" `
               --notes-file release-notes.txt
+          }
+
+      - name: Keep only the latest release
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          $currentTag = "v$env:RELEASE_VERSION"
+          $releases = gh release list --limit 100 --json tagName | ConvertFrom-Json
+          foreach ($release in $releases) {
+            if ($release.tagName -ne $currentTag) {
+              Write-Host "Deleting old release $($release.tagName)"
+              gh release delete $release.tagName --cleanup-tag --yes
+              if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+            }
+          }
+
+      - name: Purge Actions artifacts
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          $artifactIds = gh api --paginate "repos/$env:GITHUB_REPOSITORY/actions/artifacts?per_page=100" --jq '.artifacts[].id'
+          foreach ($artifactId in $artifactIds) {
+            if ($artifactId) {
+              Write-Host "Deleting workflow artifact $artifactId"
+              gh api --method DELETE "repos/$env:GITHUB_REPOSITORY/actions/artifacts/$artifactId"
+              if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+            }
           }
