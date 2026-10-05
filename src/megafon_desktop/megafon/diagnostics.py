@@ -79,7 +79,7 @@ def import_har_payload(payload: dict[str, Any]) -> DiagnosticImport:
     """Import Chrome/Playwright HAR JSON without retaining raw secrets in diagnostics."""
     entries = payload.get("log", {}).get("entries", [])
     if not isinstance(entries, list):
-        raise ValueError("HAR log.entries must be an array")
+        raise TypeError("HAR log.entries must be an array")
 
     capture = ResponseCapture()
     sanitized_entries: list[dict[str, Any]] = []
@@ -121,5 +121,5 @@ def import_har(path: Path | str) -> DiagnosticImport:
     except json.JSONDecodeError as exc:
         raise ValueError(f"invalid HAR JSON: {source}") from exc
     if not isinstance(payload, dict):
-        raise ValueError("HAR root must be an object")
+        raise TypeError("HAR root must be an object")
     return import_har_payload(payload)
