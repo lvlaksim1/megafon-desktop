@@ -161,7 +161,7 @@ class AccountHttpTransport(DirectHttpTransport):
         api_base: str,
         frontend_headers: dict[str, str],
     ) -> tuple[Any, ...]:
-        today = datetime.now().date()
+        today = datetime.now(UTC).astimezone().date()
         params = {
             "dateTo": today.strftime("%d.%m.%Y"),
             "dateFrom": (today - timedelta(days=88)).strftime("%d.%m.%Y"),

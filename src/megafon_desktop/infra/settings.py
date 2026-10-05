@@ -3,6 +3,7 @@ from __future__ import annotations
 import json
 from dataclasses import dataclass
 from pathlib import Path
+from typing import ClassVar
 
 from .paths import app_data_dir
 
@@ -14,7 +15,7 @@ class UiSettings:
 
 
 class SettingsStore:
-    VALID_THEMES = {"system", "light", "dark"}
+    VALID_THEMES: ClassVar[set[str]] = {"system", "light", "dark"}
 
     def __init__(self, path: Path | None = None) -> None:
         self.path = path or (app_data_dir() / "settings.json")
