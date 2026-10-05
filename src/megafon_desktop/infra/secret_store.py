@@ -65,7 +65,7 @@ class WindowsDpapiSecretStore:
         out_blob = _DATA_BLOB()
         ok = self._crypt32.CryptProtectData(
             ctypes.byref(in_blob),
-            "MegaFon Desktop",
+            "Megafon Desktop",
             None,
             None,
             None,
