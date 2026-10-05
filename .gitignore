@@ -5,6 +5,7 @@ __pycache__/
 .ruff_cache/
 .venv/
 dist/
+dist-installer/
 build/
 *.spec
 *.db
@@ -13,4 +14,7 @@ build/
 .playwright/
 playwright/.auth/
 *.log
+*.exe
+*.msi
+*.zip
 .env
