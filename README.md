@@ -16,18 +16,31 @@ The project replaces a legacy Excel/VBA workflow with a maintainable application
 
 ## Current status
 
-`v0.1.0` is the first installable Windows build: account storage, Windows DPAPI secret storage, a direct HTTP login/balance transport, refresh orchestration, native Qt account table and Playwright-based persistent-profile fallback groundwork.
+`v0.1.1` is the current Windows build. It includes the v0.1.0 application vertical slice plus the
+hardened update/uninstall and repository-retention policy.
 
-The authoritative repository is `lvlaksim1/megafon-desktop`. The earlier `megafon-manager` repository is legacy/migration material only.
+The authoritative repository is `lvlaksim1/megafon-desktop`. The earlier `megafon-manager`
+repository is legacy/migration material only.
 
-## Installation
+## Installation and updates
 
-Windows releases are published as executable installers in GitHub Releases.
+Windows distribution is one executable installer retained in the latest GitHub Release.
 
-- Initial installation: `MegafonDesktop-Setup-v0.1.0.exe`
-- Future versions: `MegafonDesktop-Update-vX.Y.Z.exe`
+- The initial public build was `MegafonDesktop-Setup-v0.1.0.exe`.
+- Current and future versions are `MegafonDesktop-Update-vX.Y.Z.exe`.
 
-Update installers use the same application identity and install directory, so they upgrade the installed application in place. See `docs/release.md`.
+An update installer is a full payload: it upgrades an existing installation in place and can also
+perform a clean installation when no older version is installed.
+
+Program files: `%LOCALAPPDATA%\Programs\Megafon Desktop`
+
+Application data: `%LOCALAPPDATA%\MegaFonDesktop`
+
+Uninstall removes both application-owned locations and application shortcuts. See
+`docs/release.md`.
+
+Release builds are not retained as GitHub Actions artifacts. After publishing a new release, older
+releases/tags and residual Actions artifacts are removed automatically.
 
 ## Development
 
