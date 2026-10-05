@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import sqlite3
+from typing import ClassVar
 
 from PySide6.QtCore import Qt
 from PySide6.QtGui import QPixmap
@@ -102,7 +103,7 @@ class MainWindow(QMainWindow):
         "Обновлено",
         "Действие",
     )
-    STATUS_LABELS = {
+    STATUS_LABELS: ClassVar[dict[AccountStatus, str]] = {
         AccountStatus.NEW: "Новый",
         AccountStatus.OK: "Готов",
         AccountStatus.AUTH_REQUIRED: "Нужна авторизация",
