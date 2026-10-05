@@ -494,7 +494,23 @@ class DirectHttpTransport:
         restored = self._restore_session(account_id, session)
         api_base, frontend_headers = self._bootstrap_frontend(session)
 
-        if restored:
+        state = self._session_check(session, api_base, frontend_headers)
+        if self._authenticated_for_phone(state, phone):
+            self._save_session(account_id, session)
+            snapshot = self._read_snapshot(
+                session,
+                api_base,
+                frontend_headers,
+                account_id,
+            )
+            self._save_session(account_id, session)
+            return snapshot
+
+        if restored or state.get("authenticated") is True:
+            if restored:
+                self.forget_session(account_id)
+            session = self._session()
+            api_base, frontend_headers = self._bootstrap_frontend(session)
             state = self._session_check(session, api_base, frontend_headers)
             if self._authenticated_for_phone(state, phone):
                 self._save_session(account_id, session)
@@ -506,10 +522,6 @@ class DirectHttpTransport:
                 )
                 self._save_session(account_id, session)
                 return snapshot
-
-            self.forget_session(account_id)
-            session = self._session()
-            api_base, frontend_headers = self._bootstrap_frontend(session)
 
         login_payload = self.login(
             session,
