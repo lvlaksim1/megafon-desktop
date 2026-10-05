@@ -2,7 +2,7 @@
 
 ## Product boundary
 
-MegaFon Desktop is a **native desktop application**. A browser may be launched invisibly or visibly
+Megafon Desktop is a **native desktop application**. A browser may be launched invisibly or visibly
 as an implementation detail of a fallback transport, but the product is not a browser extension and
 does not use a web UI as its primary interface.
 
