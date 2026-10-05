@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
+from typing import Any
 
 from megafon_desktop.domain.models import Account, AccountSnapshot, AccountStatus
 from megafon_desktop.infra.db import Database
@@ -49,6 +50,38 @@ class AccountService:
     def list_accounts(self) -> list[Account]:
         return self.db.list_accounts()
 
+    def set_account_order(self, account_ids: list[int]) -> None:
+        self.db.set_account_order(account_ids)
+
+    def offer_rows(self) -> list[dict[str, Any]]:
+        return self.db.offer_rows()
+
+    def set_offer_note(self, offer_id: str, note: str) -> None:
+        self.db.set_offer_note(offer_id, note)
+
+    def available_option_rows(self) -> list[dict[str, Any]]:
+        return self.db.available_option_rows()
+
+    def _missing_password(self, account_id: int) -> RefreshResult:
+        self.db.update_account_state(
+            account_id,
+            status=AccountStatus.AUTH_REQUIRED,
+            last_error="password is missing",
+        )
+        return RefreshResult(self.db.get_account(account_id), None)
+
+    def _record_error(self, account_id: int, exc: MegafonError) -> Account:
+        if isinstance(exc, CaptchaRequired):
+            status = AccountStatus.CAPTCHA
+        elif isinstance(exc, AccountBlocked):
+            status = AccountStatus.BLOCKED
+        elif isinstance(exc, AuthenticationError):
+            status = AccountStatus.AUTH_REQUIRED
+        else:
+            status = AccountStatus.ERROR
+        self.db.update_account_state(account_id, status=status, last_error=str(exc))
+        return self.db.get_account(account_id)
+
     def refresh(
         self,
         account_id: int,
@@ -57,49 +90,48 @@ class AccountService:
         account = self.db.get_account(account_id)
         password = self.secrets.get(self._secret_key(account_id))
         if not password:
-            self.db.update_account_state(
-                account_id,
-                status=AccountStatus.AUTH_REQUIRED,
-                last_error="password is missing",
-            )
-            return RefreshResult(self.db.get_account(account_id), None)
+            return self._missing_password(account_id)
 
         try:
-            snapshot = self.transport.refresh_snapshot(
+            refreshed = self.transport.refresh_account(
                 account.phone,
                 password,
                 account_id,
                 captcha_solver,
             )
-        except CaptchaRequired as exc:
-            self.db.update_account_state(
-                account_id,
-                status=AccountStatus.CAPTCHA,
-                last_error=str(exc),
-            )
-            return RefreshResult(self.db.get_account(account_id), None)
-        except AccountBlocked as exc:
-            self.db.update_account_state(
-                account_id,
-                status=AccountStatus.BLOCKED,
-                last_error=str(exc),
-            )
-            return RefreshResult(self.db.get_account(account_id), None)
-        except AuthenticationError as exc:
-            self.db.update_account_state(
-                account_id,
-                status=AccountStatus.AUTH_REQUIRED,
-                last_error=str(exc),
-            )
-            return RefreshResult(self.db.get_account(account_id), None)
         except MegafonError as exc:
-            self.db.update_account_state(
-                account_id,
-                status=AccountStatus.ERROR,
-                last_error=str(exc),
-            )
-            return RefreshResult(self.db.get_account(account_id), None)
+            return RefreshResult(self._record_error(account_id, exc), None)
 
-        self.db.add_snapshot(snapshot)
+        self.db.sync_offers(account_id, refreshed.offers)
+        self.db.sync_available_options(refreshed.available_options)
+        refreshed.snapshot.offers_summary = self.db.account_offer_summary(account_id)
+        self.db.add_snapshot(refreshed.snapshot)
         self.db.update_account_state(account_id, status=AccountStatus.OK)
-        return RefreshResult(self.db.get_account(account_id), snapshot)
+        return RefreshResult(self.db.get_account(account_id), refreshed.snapshot)
+
+    def set_blocking(
+        self,
+        account_id: int,
+        enabled: bool,
+        captcha_solver: CaptchaSolver | None = None,
+    ) -> tuple[Account, bool | None]:
+        account = self.db.get_account(account_id)
+        password = self.secrets.get(self._secret_key(account_id))
+        if not password:
+            result = self._missing_password(account_id)
+            return result.account, None
+
+        try:
+            blocked = self.transport.set_blocking(
+                account.phone,
+                password,
+                account_id,
+                enabled,
+                captcha_solver,
+            )
+        except MegafonError as exc:
+            return self._record_error(account_id, exc), None
+
+        self.db.set_latest_blocked(account_id, blocked)
+        self.db.update_account_state(account_id, status=AccountStatus.OK)
+        return self.db.get_account(account_id), blocked

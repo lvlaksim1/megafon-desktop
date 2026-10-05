@@ -74,7 +74,9 @@ try {
         (Join-Path $programFilesX86 'Inno Setup 6\ISCC.exe'),
         (Join-Path $env:LOCALAPPDATA 'Programs\Inno Setup 6\ISCC.exe')
     )
-    $compiler = $compilerCandidates | Where-Object { Test-Path -LiteralPath $_ -PathType Leaf } | Select-Object -First 1
+    $compiler = $compilerCandidates | Where-Object {
+        Test-Path -LiteralPath $_ -PathType Leaf
+    } | Select-Object -First 1
 
     if (-not $compiler) {
         $winget = Get-Command winget.exe -ErrorAction SilentlyContinue
@@ -83,7 +85,9 @@ try {
                 'install', '--id', 'JRSoftware.InnoSetup', '--exact', '--silent',
                 '--accept-package-agreements', '--accept-source-agreements'
             )
-            $compiler = $compilerCandidates | Where-Object { Test-Path -LiteralPath $_ -PathType Leaf } | Select-Object -First 1
+            $compiler = $compilerCandidates | Where-Object {
+                Test-Path -LiteralPath $_ -PathType Leaf
+            } | Select-Object -First 1
         }
     }
     if (-not $compiler) {
@@ -133,22 +137,19 @@ try {
         @"
 Megafon Desktop $tag
 
-- HTTP-only consumer/B2C web-LK authorization.
-- Dynamic X-Cabinet frontend parameters and sessionCheck lifecycle.
-- CAPTCHA continues the same login session.
-- Successful authorization is persisted before data reads.
-- Manual per-account refresh plus "Обновить всё"; no startup refresh.
-- Account deletion removes password and saved auth state.
-- Removed "Обновить выбранные" and the extra toolbar logo.
-- Refresh-token renewal is intentionally not implemented until a proven source of truth is available.
+- Restored manual "Обновить выбранные"; removed "Обновить всё" and per-row actions.
+- Resizable/movable columns with persisted layout and drag-reorderable account rows.
+- Application-wide System/Light/Dark theme setting.
+- Added latest-action amount/name/date, offers and blocking columns.
+- Added "База оферов" and "Доступные опции" using the legacy VBA data model.
+- Added selected-account number blocking/unblocking using the VBA option mechanism.
+- Preserved the verified HTTP-only B2C authorization/session/CAPTCHA foundation.
+- Refresh-token renewal remains intentionally unimplemented pending a proven current source.
 
 Installer: $installerName
 SHA-256: $digest
 "@ | Set-Content -LiteralPath $notesPath -Encoding UTF8
 
-        # v0.2.1 is expected to be absent here. Avoid probing it with
-        # 'gh release view': on Windows PowerShell its expected stderr for
-        # a missing release can become terminating under ErrorActionPreference=Stop.
         Invoke-Checked $ghExe @(
             'release', 'create', $tag, $installerPath,
             '--repo', $repository,
@@ -158,7 +159,8 @@ SHA-256: $digest
         )
         Remove-Item -LiteralPath $notesPath -Force -ErrorAction SilentlyContinue
 
-        $releaseRows = & $ghExe release list --repo $repository --limit 100 --json tagName | ConvertFrom-Json
+        $releaseRows = & $ghExe release list --repo $repository --limit 100 --json tagName |
+            ConvertFrom-Json
         foreach ($release in @($releaseRows)) {
             if ([string]$release.tagName -ne $tag) {
                 Invoke-Checked $ghExe @(

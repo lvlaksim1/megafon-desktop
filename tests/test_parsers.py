@@ -2,7 +2,10 @@ from datetime import datetime
 from decimal import Decimal
 
 from megafon_desktop.megafon.parsers import (
+    current_option_id,
     latest_expense_event,
+    parse_available_options,
+    parse_personal_offers,
     parse_remainders,
     parse_services,
 )
@@ -65,3 +68,36 @@ def test_latest_expense_event_recurses_and_deduplicates():
     assert event.occurred_at == datetime(2026, 10, 1, 11, 0, tzinfo=event.occurred_at.tzinfo)
     assert event.amount == Decimal("12.50")
     assert event.definition == "Интернет"
+
+
+def test_offer_and_option_parsers_match_vba_shapes():
+    offers = parse_personal_offers(
+        {
+            "offers": [
+                {
+                    "id": "p1",
+                    "title": "Предложение",
+                    "subTitle": "Подзаголовок",
+                    "startDate": "2026-10-01",
+                    "endDate": "2026-10-31",
+                }
+            ]
+        }
+    )
+    assert len(offers) == 1
+    assert offers[0].offer_id == "p1"
+    assert offers[0].subtitle == "Подзаголовок"
+
+    payload = {
+        "groups": [
+            {
+                "options": [
+                    {"optionId": "Q0", "optionName": "Блокировка номера", "paid": False},
+                    {"optionId": "X1", "optionName": "Другая опция", "price": 10},
+                ]
+            }
+        ]
+    }
+    options = parse_available_options(payload)
+    assert {item.option_id for item in options} == {"Q0", "X1"}
+    assert current_option_id(payload, "Блокировка номера") == "Q0"

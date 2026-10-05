@@ -8,16 +8,18 @@ from megafon_desktop import __version__
 from megafon_desktop.infra.db import Database
 from megafon_desktop.infra.paths import database_path
 from megafon_desktop.infra.secret_store import WindowsDpapiSecretStore
-from megafon_desktop.megafon.http_transport import DirectHttpTransport
+from megafon_desktop.infra.settings import SettingsStore
+from megafon_desktop.megafon.account_transport import AccountHttpTransport
 from megafon_desktop.services.account_service import AccountService
 from megafon_desktop.ui.icon import make_app_icon
 from megafon_desktop.ui.main_window import MainWindow
+from megafon_desktop.ui.theme import ThemeController
 
 
 def build_service() -> AccountService:
     db = Database(database_path())
     secrets = WindowsDpapiSecretStore()
-    transport = DirectHttpTransport(secrets=secrets)
+    transport = AccountHttpTransport(secrets=secrets)
     return AccountService(db, secrets, transport)
 
 
@@ -26,7 +28,12 @@ def main() -> int:
     app.setApplicationName("Megafon Desktop")
     app.setApplicationVersion(__version__)
     app.setWindowIcon(make_app_icon())
-    window = MainWindow(build_service())
+
+    settings = SettingsStore()
+    theme = ThemeController(app)
+    theme.apply(settings.data.theme)
+
+    window = MainWindow(build_service(), settings, theme)
     window.show()
     return app.exec()
 

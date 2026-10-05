@@ -6,7 +6,13 @@ from datetime import UTC, datetime
 from decimal import Decimal, InvalidOperation
 from typing import Any
 
-from megafon_desktop.domain.models import ExpenseEvent, Remainders, ServiceOption
+from megafon_desktop.domain.models import (
+    AvailableOption,
+    ExpenseEvent,
+    PersonalOffer,
+    Remainders,
+    ServiceOption,
+)
 
 _DATA_UNITS_KB = {
     "KB": Decimal(1),
@@ -118,7 +124,12 @@ def _parse_datetime(value: Any) -> datetime | None:
         return parsed if parsed.tzinfo else parsed.replace(tzinfo=UTC)
     except ValueError:
         pass
-    for fmt in ("%d.%m.%Y %H:%M:%S", "%d.%m.%Y %H:%M", "%d.%m.%Y"):
+    for fmt in (
+        "%d.%m.%Y %H:%M:%S",
+        "%d.%m.%Y %H:%M",
+        "%d.%m.%Y",
+        "%Y-%m-%d",
+    ):
         try:
             return datetime.strptime(text, fmt).replace(tzinfo=UTC)
         except ValueError:
@@ -154,3 +165,64 @@ def parse_expense_events(payloads: Iterable[dict[str, Any]]) -> list[ExpenseEven
 def latest_expense_event(payloads: Iterable[dict[str, Any]]) -> ExpenseEvent | None:
     events = parse_expense_events(payloads)
     return events[0] if events else None
+
+
+def parse_personal_offers(payload: Any) -> list[PersonalOffer]:
+    offers: dict[str, PersonalOffer] = {}
+    for item in _walk(payload):
+        offer_id = item.get("id")
+        title = item.get("title")
+        if not isinstance(offer_id, (str, int)) or not isinstance(title, str):
+            continue
+        if not any(key in item for key in ("startDate", "endDate", "subTitle", "bigBannerUrl")):
+            continue
+        key = str(offer_id)
+        offers.setdefault(
+            key,
+            PersonalOffer(
+                offer_id=key,
+                title=title,
+                subtitle=str(item.get("subTitle") or ""),
+                description=str(item.get("description") or ""),
+                start_at=_parse_datetime(item.get("startDate")),
+                end_at=_parse_datetime(item.get("endDate")),
+            ),
+        )
+    return list(offers.values())
+
+
+def offer_full_description(payload: Any) -> str:
+    for item in _walk(payload):
+        description = item.get("description")
+        if isinstance(description, str) and description.strip():
+            return description.strip()
+    return ""
+
+
+def parse_available_options(payload: Any) -> list[AvailableOption]:
+    result: dict[str, AvailableOption] = {}
+    for item in _walk(payload):
+        option_id = item.get("optionId")
+        option_name = item.get("optionName") or item.get("name")
+        if not isinstance(option_id, (str, int)) or not option_name:
+            continue
+        key = str(option_id)
+        if key not in result:
+            result[key] = AvailableOption(
+                option_id=key,
+                name=str(option_name),
+                fields=dict(item),
+            )
+    return list(result.values())
+
+
+def current_option_id(payload: Any, option_name: str) -> str | None:
+    target = option_name.strip().casefold()
+    for item in _walk(payload):
+        name = item.get("optionName") or item.get("name")
+        if not isinstance(name, str) or name.strip().casefold() != target:
+            continue
+        option_id = item.get("optionId") or item.get("id")
+        if option_id is not None:
+            return str(option_id)
+    return None

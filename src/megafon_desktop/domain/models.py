@@ -1,9 +1,10 @@
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from datetime import datetime
 from decimal import Decimal
 from enum import StrEnum
+from typing import Any
 
 
 class AccountStatus(StrEnum):
@@ -24,6 +25,7 @@ class Account:
     status: AccountStatus = AccountStatus.NEW
     last_error: str = ""
     last_updated_at: datetime | None = None
+    sort_order: int = 0
 
 
 @dataclass(slots=True)
@@ -34,6 +36,11 @@ class AccountSnapshot:
     commercial_balance: Decimal | None = None
     tariff_name: str | None = None
     credit_limit: Decimal | None = None
+    last_action_amount: Decimal | None = None
+    last_action_name: str | None = None
+    last_action_at: datetime | None = None
+    offers_summary: str = ""
+    blocked: bool | None = None
 
 
 @dataclass(slots=True)
@@ -65,5 +72,20 @@ class PersonalOffer:
     title: str
     subtitle: str = ""
     description: str = ""
+    full_description: str = ""
     start_at: datetime | None = None
     end_at: datetime | None = None
+
+
+@dataclass(slots=True)
+class AvailableOption:
+    option_id: str
+    name: str
+    fields: dict[str, Any] = field(default_factory=dict)
+
+
+@dataclass(slots=True)
+class AccountRefresh:
+    snapshot: AccountSnapshot
+    offers: list[PersonalOffer] = field(default_factory=list)
+    available_options: list[AvailableOption] = field(default_factory=list)
