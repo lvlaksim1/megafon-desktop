@@ -129,16 +129,8 @@ try {
         }
 
         $head = (& git rev-parse HEAD | Select-Object -First 1).Trim()
-        & $ghExe release view $tag --repo $repository *> $null
-        if ($LASTEXITCODE -eq 0) {
-            Invoke-Checked $ghExe @(
-                'release', 'upload', $tag, $installerPath,
-                '--repo', $repository, '--clobber'
-            )
-        }
-        else {
-            $notesPath = Join-Path $env:TEMP "megafon-desktop-$version-release-notes.txt"
-            @"
+        $notesPath = Join-Path $env:TEMP "megafon-desktop-$version-release-notes.txt"
+        @"
 Megafon Desktop $tag
 
 - HTTP-only consumer/B2C web-LK authorization.
@@ -153,15 +145,18 @@ Megafon Desktop $tag
 Installer: $installerName
 SHA-256: $digest
 "@ | Set-Content -LiteralPath $notesPath -Encoding UTF8
-            Invoke-Checked $ghExe @(
-                'release', 'create', $tag, $installerPath,
-                '--repo', $repository,
-                '--target', $head,
-                '--title', "Megafon Desktop $tag",
-                '--notes-file', $notesPath
-            )
-            Remove-Item -LiteralPath $notesPath -Force -ErrorAction SilentlyContinue
-        }
+
+        # v0.2.1 is expected to be absent here. Avoid probing it with
+        # 'gh release view': on Windows PowerShell its expected stderr for
+        # a missing release can become terminating under ErrorActionPreference=Stop.
+        Invoke-Checked $ghExe @(
+            'release', 'create', $tag, $installerPath,
+            '--repo', $repository,
+            '--target', $head,
+            '--title', "Megafon Desktop $tag",
+            '--notes-file', $notesPath
+        )
+        Remove-Item -LiteralPath $notesPath -Force -ErrorAction SilentlyContinue
 
         $releaseRows = & $ghExe release list --repo $repository --limit 100 --json tagName | ConvertFrom-Json
         foreach ($release in @($releaseRows)) {
