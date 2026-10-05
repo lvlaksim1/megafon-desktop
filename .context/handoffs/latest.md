@@ -2,12 +2,12 @@
 
 ## Last completed work
 
-Created public `lvlaksim1/megafon-desktop` via repo-factory, installed Project Manager, researched MBplugin's current browser-response approach, and merged native desktop bootstrap commit `6c3a9b3692dff49fccc1dde7a64777df1e9456ab`.
+Created public `lvlaksim1/megafon-desktop` via repo-factory, installed Project Manager, researched MBplugin's current browser-response approach, merged the native desktop bootstrap, implemented persistent-profile Playwright response capture, and added pure parsers/tests for MBplugin-observed remainder/service data and legacy-style expense events.
 
 ## Verified current state
 
-Native Qt + SQLite + DPAPI + direct consumer-LK balance transport + first Playwright persistent-profile response-capture fallback are present. Eight local tests and Python compilation pass. No real MegaFon mutation was executed.
+Native Qt + SQLite + DPAPI + direct consumer-LK balance transport + Playwright response capture + read-data parsers are present. Eleven local tests and Python compilation pass. No real MegaFon mutation was executed.
 
 ## Next operation
 
-Verify Windows CI, then finish M1 read-only browser collectors and redacted diagnostic-log ingestion. Fresh owner browser logs are the evidence gate for current mutation contracts.
+Verify Windows CI, add redacted diagnostic-log ingestion and aggregate read models/UI. Fresh owner browser logs remain the evidence gate for current mutation contracts.

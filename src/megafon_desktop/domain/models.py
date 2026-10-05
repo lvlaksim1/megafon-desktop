@@ -37,11 +37,26 @@ class AccountSnapshot:
 
 
 @dataclass(slots=True)
+class Remainders:
+    minutes: Decimal = Decimal("0")
+    sms: Decimal = Decimal("0")
+    internet_kb: Decimal = Decimal("0")
+
+
+@dataclass(slots=True)
 class ServiceOption:
     option_id: str
     name: str
     paid: bool
     price: Decimal | None = None
+
+
+@dataclass(slots=True)
+class ExpenseEvent:
+    occurred_at: datetime
+    amount: Decimal
+    definition: str = ""
+    category: str = ""
 
 
 @dataclass(slots=True)

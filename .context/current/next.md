@@ -1,7 +1,7 @@
 # Next actions
 
-1. Verify Windows CI for bootstrap commit `6c3a9b3`; fix any test/lint/platform issue.
-2. Continue M1: make browser capture production-grade and add fixture parsers for tariff, remainders, current services and expenses.
-3. Add a redacted browser-log/diagnostic bundle importer so the owner's future logs can be compared safely and repeatably.
-4. Extend local domain/database/UI toward the active VBA workflow without enabling destructive actions yet.
-5. On receipt of fresh owner logs, update endpoint evidence and unlock only those mutations whose current contracts are verified.
+1. Verify Windows CI and fix any test/lint/platform issue.
+2. Continue M1 with a redacted browser-log/diagnostic bundle importer and connect captured tariff/remainders/services/expenses to an aggregate read model.
+3. Extend SQLite/domain/UI for read-only service, remainder and expense views using fixture-driven tests.
+4. Add bounded-concurrency bulk refresh and per-account progress/error isolation.
+5. On receipt of fresh owner logs, reconcile endpoint/selectors and unlock only mutations whose current contracts are verified.

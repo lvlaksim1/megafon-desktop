@@ -12,8 +12,8 @@
 - MBplugin's current MegaFon implementation demonstrates a useful resilience pattern: authenticate through the real LK in a persistent Playwright profile and collect JSON network responses for known resources.
   - source: public `artyl/mbplugin` repository studied 2026-10-05
   - authority: trusted-external
-- Product `main` at commit `6c3a9b3692dff49fccc1dde7a64777df1e9456ab` contains the first native vertical slice plus the first Playwright response-capture implementation. Eight local unit tests and Python compilation pass.
-  - source: verified repository and local test run, 2026-10-05
+- Product `main` contains the native vertical slice, Playwright response capture, and fixture-driven parsers for MBplugin-observed remainder/service shapes plus recursive expense events. Eleven local unit tests and Python compilation pass.
+  - source: verified repository worktree and local test run, 2026-10-05
   - authority: verified-repository
 - Current browser selectors and mutation contracts have not yet been verified against the owner's fresh browser logs; therefore real-account mutations remain gated.
   - source: current project evidence, 2026-10-05
