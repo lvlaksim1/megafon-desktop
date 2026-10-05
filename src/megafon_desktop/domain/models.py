@@ -38,9 +38,9 @@ class AccountSnapshot:
 
 @dataclass(slots=True)
 class Remainders:
-    minutes: Decimal = Decimal("0")
-    sms: Decimal = Decimal("0")
-    internet_kb: Decimal = Decimal("0")
+    minutes: Decimal = Decimal(0)
+    sms: Decimal = Decimal(0)
+    internet_kb: Decimal = Decimal(0)
 
 
 @dataclass(slots=True)

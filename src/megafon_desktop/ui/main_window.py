@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import sqlite3
+
 from PySide6.QtCore import Qt
 from PySide6.QtWidgets import (
     QDialog,
@@ -44,7 +46,7 @@ class AddAccountDialog(QDialog):
 
 
 class MainWindow(QMainWindow):
-    HEADERS = ["Номер", "Метка", "Баланс", "Фин. баланс", "Статус", "Обновлено"]
+    HEADERS = ("Номер", "Метка", "Баланс", "Фин. баланс", "Статус", "Обновлено")
 
     def __init__(self, service: AccountService) -> None:
         super().__init__()
@@ -104,7 +106,7 @@ class MainWindow(QMainWindow):
             return
         try:
             self.service.add_account(dialog.phone.text(), dialog.password.text(), dialog.label.text())
-        except Exception as exc:
+        except (ValueError, OSError, sqlite3.Error) as exc:
             QMessageBox.critical(self, "Не удалось добавить номер", str(exc))
             return
         self.reload()

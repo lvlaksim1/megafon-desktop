@@ -6,7 +6,6 @@ from pathlib import Path
 
 from megafon_desktop.domain.models import Account, AccountSnapshot, AccountStatus
 
-
 _SCHEMA = """
 PRAGMA journal_mode=WAL;
 PRAGMA foreign_keys=ON;

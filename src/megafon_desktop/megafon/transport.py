@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from typing import Protocol
+
 from megafon_desktop.domain.models import AccountSnapshot
 
 

@@ -1,8 +1,8 @@
 from __future__ import annotations
 
 import time
-from datetime import UTC, datetime
 from collections import defaultdict
+from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
@@ -95,19 +95,13 @@ class BrowserCaptureTransport:
 
     def _login_if_needed(self, page: Any, phone: str, password: str) -> None:
         phone_input = page.locator("input.phone-input__field")
-        try:
-            login_visible = phone_input.count() > 0 and phone_input.first.is_visible()
-        except Exception:
-            login_visible = False
+        login_visible = phone_input.count() > 0 and phone_input.first.is_visible()
         if not login_visible:
             return
 
         password_mode = page.get_by_role("button", name="По паролю")
         if password_mode.count() > 0:
-            try:
-                password_mode.first.click(timeout=3_000)
-            except Exception:
-                pass
+            password_mode.first.click(timeout=3_000)
 
         phone_input.first.fill(phone)
         password_input = page.locator("input[type=password]")
@@ -120,14 +114,16 @@ class BrowserCaptureTransport:
             raise AuthenticationError("login submit button was not found")
         submit.first.click()
 
-    def _wait_for_balance_or_auth_gate(self, page: Any, capture: ResponseCapture) -> None:
+    def _wait_for_balance_or_auth_gate(
+        self, page: Any, capture: ResponseCapture, playwright_error: type[Exception]
+    ) -> None:
         deadline = time.monotonic() + self.timeout_ms / 1000
         while time.monotonic() < deadline:
             if capture.has("balance/api/main"):
                 return
             try:
                 text = page.locator("body").inner_text(timeout=1_000).lower()
-            except Exception:
+            except playwright_error:
                 text = ""
             if "капч" in text or "код с картинки" in text:
                 raise CaptchaRequired("MegaFon requested CAPTCHA in browser login")
@@ -135,7 +131,9 @@ class BrowserCaptureTransport:
         raise AuthenticationError("browser login did not reach an authenticated balance response")
 
     @staticmethod
-    def _on_response(capture: ResponseCapture, response: Any) -> None:
+    def _on_response(
+        capture: ResponseCapture, response: Any, playwright_error: type[Exception]
+    ) -> None:
         if not any(fragment in response.url for fragment in capture.KNOWN_FRAGMENTS):
             return
         try:
@@ -145,6 +143,7 @@ class BrowserCaptureTransport:
 
     def refresh_snapshot(self, phone: str, password: str, account_id: int) -> AccountSnapshot:
         try:
+            from playwright.sync_api import Error as PlaywrightError
             from playwright.sync_api import sync_playwright
         except ImportError as exc:
             raise ProtocolChanged(
@@ -157,20 +156,24 @@ class BrowserCaptureTransport:
                 user_data_dir=self._profile_dir(account_id),
                 headless=self.headless,
             )
-            context.on("response", lambda response: self._on_response(capture, response))
+            context.on(
+                "response",
+                lambda response: self._on_response(capture, response, PlaywrightError),
+            )
             page = context.pages[0] if context.pages else context.new_page()
             page.set_default_timeout(self.timeout_ms)
             try:
                 page.goto(self.LOGIN_URL, wait_until="domcontentloaded")
                 self._login_if_needed(page, phone, password)
-                self._wait_for_balance_or_auth_gate(page, capture)
+                self._wait_for_balance_or_auth_gate(page, capture, PlaywrightError)
 
                 for url in (self.OPTIONS_URL, self.EXPENSES_URL, self.PAID_OPTIONS_URL):
                     try:
                         page.goto(url, wait_until="domcontentloaded")
                         page.wait_for_timeout(1_000)
-                    except Exception:
-                        continue
+                    except PlaywrightError:
+                        # Optional collector page failed; core captured account data stays valid.
+                        continue  # noqa: S112
             finally:
                 context.close()
 

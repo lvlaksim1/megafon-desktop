@@ -1,12 +1,12 @@
 from __future__ import annotations
 
 import re
+from collections.abc import Iterable, Iterator
 from datetime import UTC, datetime
 from decimal import Decimal, InvalidOperation
-from typing import Any, Iterable, Iterator
+from typing import Any
 
 from megafon_desktop.domain.models import ExpenseEvent, Remainders, ServiceOption
-
 
 _DATA_UNITS_KB = {
     "KB": Decimal(1),

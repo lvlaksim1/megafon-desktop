@@ -19,8 +19,8 @@ def test_parse_remainders_matches_mbplugin_shapes():
             ]
         }
     )
-    assert value.minutes == Decimal("120")
-    assert value.sms == Decimal("50")
+    assert value.minutes == Decimal(120)
+    assert value.sms == Decimal(50)
     assert value.internet_kb == Decimal(2 * 1024**2 + 512 * 1024)
 
 
@@ -41,8 +41,8 @@ def test_parse_services_matches_mbplugin_shapes():
     )
     assert [(item.name, item.price) for item in services] == [
         ("Тариф Тест", Decimal("550.00")),
-        ("Платная услуга", Decimal("200")),
-        ("Бесплатная услуга", Decimal("0")),
+        ("Платная услуга", Decimal(200)),
+        ("Бесплатная услуга", Decimal(0)),
     ]
 
 

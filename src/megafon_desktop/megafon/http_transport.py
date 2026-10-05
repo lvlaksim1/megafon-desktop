@@ -67,9 +67,12 @@ class DirectHttpTransport:
 
         cookie_names = {cookie.name.upper() for cookie in session.cookies}
         response_headers = {name.upper(): value for name, value in response.headers.items()}
-        if "USER-GUID" not in cookie_names and "USER-GUID" not in " ".join(response_headers):
-            if "JSESSIONID" not in cookie_names:
-                raise AuthenticationError("login response did not establish a recognizable session")
+        if (
+            "USER-GUID" not in cookie_names
+            and "USER-GUID" not in " ".join(response_headers)
+            and "JSESSIONID" not in cookie_names
+        ):
+            raise AuthenticationError("login response did not establish a recognizable session")
 
     def _get_json(self, session: requests.Session, path: str) -> dict[str, Any]:
         response = session.get(
