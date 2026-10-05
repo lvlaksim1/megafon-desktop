@@ -1,20 +1,31 @@
 # Latest handoff
 
-## Last completed work
+## Current conclusion
 
-- Consolidated the product under the authoritative public repository `lvlaksim1/megafon-desktop` and exact product name **Megafon Desktop**.
-- Marked `lvlaksim1/megafon-manager` as moved/legacy rather than an active product repository.
-- Added PyInstaller + Inno Setup release packaging and documented the installer/update policy.
-- Fixed release-blocking ruff issues while preserving passing tests.
-- Verified release commit `8f8c8a316ff0a79a869bc191d6e58aff5cc01f7a`: Windows CI passed with 14 tests and ruff.
-- Windows installer workflow run `37340148966` completed successfully.
-- Published GitHub Release `v0.1.0` with `MegafonDesktop-Setup-v0.1.0.exe`; SHA-256 `9a86fa0b5897ee19b553fc8d954fcf424471e9545fc78f04fcd30bc91c53bcf8`.
-- Switched `RELEASE_KIND` to `Update` so subsequent releases are emitted as `MegafonDesktop-Update-vX.Y.Z.exe`.
+v0.2.0's authorization path is not compatible with the full current B2C web-LK protocol. The owner supplied a fresh browser network capture showing the missing request context and successful CAPTCHA flow. Do not patch the existing simplified login blindly; replace it with the verified state machine.
 
-## Verified current state
+## Verified B2C flow
 
-Native Qt + SQLite + DPAPI + direct consumer-LK balance transport + Playwright response capture + redacted HAR diagnostics + read-data parsers are present. Windows CI and installer packaging are verified. No real MegaFon mutation was executed.
+- Runtime requirement: HTTP-only; no browser/Playwright runtime or fallback.
+- No automatic account refresh at application startup.
+- Manual refresh restores per-account auth state and first checks `/api/auth/sessionCheck`.
+- Current frontend-derived request metadata includes `X-Cabinet-Id-Param`, `X-Cabinet-Check-Info`, `X-Cabinet-Validation-Param`.
+- Password CAPTCHA flow is: login -> `a211` -> GET CAPTCHA image -> repeat login with CAPTCHA in the same HTTP session -> authenticated.
+- Save the cookie jar immediately after successful authentication, before data reads.
+- The observed successful login creates short-lived access/id token cookies (~1200 s) plus long-lived `X-Cabinet-Refresh-Token` (~90 days), CSRF cookies, JSESSIONID and identity cookies.
+- Exact refresh-token exchange after short-token expiry is still an evidence gap. The current capture is too short; do not invent refresh behavior.
 
-## Next operation
+## External cross-check
 
-Continue the read-only aggregate/UI path and use fresh owner browser logs as the evidence gate for current protocol contracts. The next release must be an update installer, not a ZIP or manual file replacement.
+Current/recent consumer reverse implementations (`Unlicensed-ZZZ/MobileBalance`, `dukei/any-balance-providers`) independently confirm sessionCheck, CAPTCHA continuation and dynamic X-Cabinet frontend metadata. MBplugin's current browser approach is useful as research evidence but is not the product runtime model.
+
+## Required next UI changes
+
+- Add delete-account with password/auth-state cleanup.
+- Remove toolbar logo beside **Добавить номер**.
+- Remove **Обновить выбранные**.
+- Keep per-account **Обновить**, **Обновить всё**, and application/system icon.
+
+## Release policy
+
+All subsequent releases remain executable `MegafonDesktop-Update-vX.Y.Z.exe` installers and must preserve `%LOCALAPPDATA%\MegaFonDesktop` during updates.
