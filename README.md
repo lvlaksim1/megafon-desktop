@@ -1,4 +1,4 @@
-# MegaFon Desktop
+# Megafon Desktop
 
 Native Windows desktop manager for **consumer** MegaFon accounts.
 
