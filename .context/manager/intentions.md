@@ -1,7 +1,10 @@
 # Manager intentions and commitments
 
-Record commitments using the Contract lifecycle:
+## Active
 
-`proposed → accepted/active → completed | cancelled | invalidated | superseded`
+1. **M1 browser resilience — accepted/active.** Complete the Playwright persistent-profile capture path, current consumer data parsers, authentication gates and redacted diagnostic-log ingestion.
+2. **M2 VBA parity — accepted/active.** Implement paid-option rules, expenses/latest action, available options, personal offers and bounded bulk processing.
+3. **M3 controlled mutations — accepted/active but gated.** Implement option/offer/forwarding/tariff mutations only after fresh owner browser logs verify current contracts and safety conditions.
+4. **M4 Windows delivery — accepted/active.** Package and update the native application after the functional core is proven.
 
-Only accepted/active items are continuing manager responsibility. Record the verification basis for completion and the reason for cancellation, invalidation, or supersession when significant. An explicit statement that there are no active commitments is valid state once verified.
+Completion requires repository evidence plus relevant tests/runtime verification; a plan change does not cancel these commitments.
