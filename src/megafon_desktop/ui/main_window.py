@@ -51,7 +51,7 @@ class MainWindow(QMainWindow):
     def __init__(self, service: AccountService) -> None:
         super().__init__()
         self.service = service
-        self.setWindowTitle("MegaFon Desktop")
+        self.setWindowTitle("Megafon Desktop")
         self.resize(980, 560)
 
         central = QWidget()
