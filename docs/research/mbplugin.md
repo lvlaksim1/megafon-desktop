@@ -2,7 +2,7 @@
 
 Source: <https://github.com/artyl/mbplugin> (MIT license).
 
-We use MBplugin as a research reference, not as the product shell. MegaFon Desktop remains a native
+We use MBplugin as a research reference, not as the product shell. Megafon Desktop remains a native
 Windows application.
 
 ## Useful mechanisms
