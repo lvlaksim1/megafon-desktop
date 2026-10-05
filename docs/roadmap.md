@@ -9,16 +9,19 @@
 - [x] Direct login + balance transport from legacy VBA contract.
 - [x] Unit-test baseline and CI.
 
-## M1 — browser capture fallback
+## M1 — HTTP-only authorization and manual refresh
 
-- [ ] Persistent per-account Playwright profile.
-- [ ] Capture JSON responses by URL fragment.
-- [ ] Login-state/CAPTCHA/manual-auth state machine.
-- [ ] Balance, tariff, remainders, current services and expenses collectors.
-- [ ] Redacted diagnostic bundle import/export for owner-provided browser logs.
+- [x] No automatic network refresh at application startup.
+- [x] Per-account **Обновить** action.
+- [x] **Обновить выбранные** and **Обновить всё** actions.
+- [x] Persistent per-account HTTP cookie jar protected by Windows DPAPI.
+- [x] Native CAPTCHA image/input flow for MegaFon login code `a211`.
+- [x] Browser/Playwright removed from the production runtime.
+- [x] Application, shortcut and installer icon.
 
 ## M2 — parity with active VBA workflow
 
+- [ ] Read-only tariff/remainders/current services/expenses views.
 - [ ] Paid-option classification and owner rules.
 - [ ] Last paid action from expense categories.
 - [ ] Available-option catalogue.
@@ -27,7 +30,7 @@
 
 ## M3 — controlled mutations
 
-Only after current browser-log verification:
+Only after current capture-log verification:
 
 - [ ] connect/disconnect option;
 - [ ] reject/activate personal offer;
@@ -37,6 +40,7 @@ Only after current browser-log verification:
 
 ## M4 — packaging
 
-- [ ] PyInstaller one-file/one-folder evaluation.
-- [ ] Windows installer and in-place updater.
+- [x] PyInstaller onedir Windows build.
+- [x] Windows installer and in-place update installer.
+- [x] Latest-release-only retention and zero retained Actions artifacts.
 - [ ] signed releases when signing material is configured.

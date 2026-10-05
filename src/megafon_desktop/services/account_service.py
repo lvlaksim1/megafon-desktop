@@ -11,7 +11,7 @@ from megafon_desktop.megafon.errors import (
     CaptchaRequired,
     MegafonError,
 )
-from megafon_desktop.megafon.transport import MegafonTransport
+from megafon_desktop.megafon.transport import CaptchaSolver, MegafonTransport
 
 
 @dataclass(slots=True)
@@ -43,30 +43,55 @@ class AccountService:
     def list_accounts(self) -> list[Account]:
         return self.db.list_accounts()
 
-    def refresh(self, account_id: int) -> RefreshResult:
+    def refresh(
+        self,
+        account_id: int,
+        captcha_solver: CaptchaSolver | None = None,
+    ) -> RefreshResult:
         account = self.db.get_account(account_id)
         password = self.secrets.get(self._secret_key(account_id))
         if not password:
             self.db.update_account_state(
-                account_id, status=AccountStatus.AUTH_REQUIRED, last_error="password is missing"
+                account_id,
+                status=AccountStatus.AUTH_REQUIRED,
+                last_error="password is missing",
             )
             return RefreshResult(self.db.get_account(account_id), None)
 
         try:
-            snapshot = self.transport.refresh_snapshot(account.phone, password, account_id)
+            snapshot = self.transport.refresh_snapshot(
+                account.phone,
+                password,
+                account_id,
+                captcha_solver,
+            )
         except CaptchaRequired as exc:
-            self.db.update_account_state(account_id, status=AccountStatus.CAPTCHA, last_error=str(exc))
+            self.db.update_account_state(
+                account_id,
+                status=AccountStatus.CAPTCHA,
+                last_error=str(exc),
+            )
             return RefreshResult(self.db.get_account(account_id), None)
         except AccountBlocked as exc:
-            self.db.update_account_state(account_id, status=AccountStatus.BLOCKED, last_error=str(exc))
+            self.db.update_account_state(
+                account_id,
+                status=AccountStatus.BLOCKED,
+                last_error=str(exc),
+            )
             return RefreshResult(self.db.get_account(account_id), None)
         except AuthenticationError as exc:
             self.db.update_account_state(
-                account_id, status=AccountStatus.AUTH_REQUIRED, last_error=str(exc)
+                account_id,
+                status=AccountStatus.AUTH_REQUIRED,
+                last_error=str(exc),
             )
             return RefreshResult(self.db.get_account(account_id), None)
         except MegafonError as exc:
-            self.db.update_account_state(account_id, status=AccountStatus.ERROR, last_error=str(exc))
+            self.db.update_account_state(
+                account_id,
+                status=AccountStatus.ERROR,
+                last_error=str(exc),
+            )
             return RefreshResult(self.db.get_account(account_id), None)
 
         self.db.add_snapshot(snapshot)

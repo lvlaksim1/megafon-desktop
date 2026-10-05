@@ -21,7 +21,6 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: "3.12"
-          cache: pip
 
       - name: Install build dependencies
         shell: pwsh
@@ -34,13 +33,18 @@ jobs:
         shell: pwsh
         run: |
           pytest -q
-          ruff check src tests
+          ruff check src tests packaging/generate_icon.py
+
+      - name: Generate application icon
+        shell: pwsh
+        run: python packaging/generate_icon.py
 
       - name: Build application
         shell: pwsh
         run: |
           python -m PyInstaller --noconfirm --clean --windowed --onedir `
             --name "Megafon Desktop" `
+            --icon "build\icon\megafon-desktop.ico" `
             --paths src `
             src/megafon_desktop/app.py
 
@@ -68,6 +72,12 @@ jobs:
           $notes = @"
           Megafon Desktop $tag
 
+          HTTP-only authorization: no browser runtime dependency.
+          Persistent per-account authorization is stored with Windows DPAPI.
+          Interactive CAPTCHA is shown inside the application and resumes the same refresh.
+          Manual per-account, selected-account and "Update all" refresh controls.
+          New application/shortcut/installer icon.
+
           Windows installer: $env:INSTALLER_NAME
 
           This is a full-payload installer: it updates an existing installation in place and can
@@ -75,6 +85,7 @@ jobs:
 
           Program: %LOCALAPPDATA%\Programs\Megafon Desktop
           Application data: %LOCALAPPDATA%\MegaFonDesktop
+          Updates preserve application data and authorization state.
           Uninstall removes both locations and application-owned shortcuts/data.
           "@
           Set-Content -Path release-notes.txt -Value $notes -Encoding UTF8

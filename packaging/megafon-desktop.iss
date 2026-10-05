@@ -1,5 +1,5 @@
 #ifndef MyAppVersion
-  #define MyAppVersion "0.1.1"
+  #define MyAppVersion "0.2.0"
 #endif
 #ifndef PackageKind
   #define PackageKind "Update"
@@ -23,6 +23,7 @@ ArchitecturesAllowed=x64compatible
 ArchitecturesInstallIn64BitMode=x64compatible
 OutputDir=..\dist-installer
 OutputBaseFilename=MegafonDesktop-{#PackageKind}-v{#MyAppVersion}
+SetupIconFile=..\build\icon\megafon-desktop.ico
 Compression=lzma2/max
 SolidCompression=yes
 WizardStyle=modern

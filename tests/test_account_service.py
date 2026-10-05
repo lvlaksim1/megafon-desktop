@@ -4,13 +4,21 @@ from decimal import Decimal
 from megafon_desktop.domain.models import AccountSnapshot, AccountStatus
 from megafon_desktop.infra.db import Database
 from megafon_desktop.infra.secret_store import MemorySecretStore
+from megafon_desktop.megafon.transport import CaptchaSolver
 from megafon_desktop.services.account_service import AccountService
 
 
 class FakeTransport:
-    def refresh_snapshot(self, phone: str, password: str, account_id: int) -> AccountSnapshot:
+    def refresh_snapshot(
+        self,
+        phone: str,
+        password: str,
+        account_id: int,
+        captcha_solver: CaptchaSolver | None = None,
+    ) -> AccountSnapshot:
         assert phone == "79991234567"
         assert password == "secret"
+        assert captcha_solver is None
         return AccountSnapshot(
             account_id=account_id,
             captured_at=datetime.now(UTC),
