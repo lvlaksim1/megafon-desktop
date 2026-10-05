@@ -40,6 +40,12 @@ class AccountService:
             raise
         return account
 
+    def delete_account(self, account_id: int) -> None:
+        self.db.get_account(account_id)
+        self.secrets.delete(self._secret_key(account_id))
+        self.transport.forget_session(account_id)
+        self.db.delete_account(account_id)
+
     def list_accounts(self) -> list[Account]:
         return self.db.list_accounts()
 
