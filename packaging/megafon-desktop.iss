@@ -1,8 +1,8 @@
 #ifndef MyAppVersion
-  #define MyAppVersion "0.1.0"
+  #define MyAppVersion "0.1.1"
 #endif
 #ifndef PackageKind
-  #define PackageKind "Setup"
+  #define PackageKind "Update"
 #endif
 
 #define MyAppName "Megafon Desktop"
@@ -29,6 +29,7 @@ WizardStyle=modern
 CloseApplications=force
 RestartApplications=no
 UninstallDisplayName=Megafon Desktop
+UninstallDisplayIcon={app}\{#MyAppExeName}
 SetupLogging=yes
 
 [Files]
@@ -43,3 +44,9 @@ Name: "desktopicon"; Description: "Создать ярлык на рабочем
 
 [Run]
 Filename: "{app}\{#MyAppExeName}"; Description: "Запустить Megafon Desktop"; Flags: nowait postinstall skipifsilent
+
+[UninstallDelete]
+Type: filesandordirs; Name: "{localappdata}\MegaFonDesktop"
+Type: filesandordirs; Name: "{app}"
+Type: filesandordirs; Name: "{userprograms}\Megafon Desktop"
+Type: files; Name: "{userdesktop}\Megafon Desktop.lnk"
