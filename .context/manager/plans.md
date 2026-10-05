@@ -1,13 +1,12 @@
 # Manager plans
 
 1. Keep `lvlaksim1/megafon-desktop` as the sole active product repository.
-2. Treat B2C web-LK reverse traffic as the protocol authority; ignore B2B and official/public MegaFon API documentation for this product.
-3. Build an HTTP-only bootstrap that derives the current frontend request parameters from the active service-worker / `app.<hash>.js` assets.
-4. On manual refresh only, restore account auth state, call `/api/auth/sessionCheck`, verify account identity, and reuse the session if valid.
-5. If needed, perform password login and CAPTCHA in one preserved HTTP session and persist the resulting cookies immediately on authentication success.
-6. Persist any subsequent cookie/token rotations after authenticated calls.
-7. Specifically research refresh-token mechanics by obtaining evidence that spans expiry of the observed ~20-minute access/id tokens; determine whether renewal is implicit on an ordinary authenticated/sessionCheck request or uses a distinct endpoint, and whether the refresh token rotates.
-8. Base tests on redacted real-capture contracts rather than invented fake cookies/headers.
-9. Apply requested UI cleanup and account deletion with complete secret/session cleanup.
-10. Resume remainders/services/expenses/tariff only after authorization is stable; keep mutations gated.
-11. Publish each fixed version only as an executable update installer after green Windows CI.
+2. Treat B2C web-LK reverse traffic and current proven reverse implementations as protocol authority; ignore B2B and official/public MegaFon API documentation.
+3. Keep runtime HTTP-only and manual-refresh-only.
+4. Use dynamic frontend bootstrap, `sessionCheck`, one-session CAPTCHA login, immediate cookie persistence and account-identity validation as the auth baseline.
+5. Await owner live verification of v0.2.1; if it fails, diagnose the exact server response before editing the protocol.
+6. Research refresh-token renewal only from a proven current B2C source of truth. Do not use expiry experiments or speculative endpoints.
+7. Resume remainders/services/expenses/tariff after auth live confirmation; keep mutations gated.
+8. Use replay/contract tests based on redacted real-capture structures for future protocol changes.
+9. Keep account deletion coupled to database, password and auth-state cleanup.
+10. Publish each fixed version as an executable update installer; use the trusted PC Runner Gateway exact-SHA release task when hosted runners are unavailable.
