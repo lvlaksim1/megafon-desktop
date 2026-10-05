@@ -1,0 +1,92 @@
+name: Build Windows Installer
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - RELEASE_VERSION
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build-installer:
+    runs-on: windows-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+
+      - name: Install build dependencies
+        shell: pwsh
+        run: |
+          python -m pip install --upgrade pip
+          pip install -e ".[dev]"
+          choco install innosetup -y --no-progress
+
+      - name: Run tests and lint
+        shell: pwsh
+        run: |
+          pytest -q
+          ruff check src tests
+
+      - name: Build application
+        shell: pwsh
+        run: |
+          python -m PyInstaller --noconfirm --clean --windowed --onedir `
+            --name "Megafon Desktop" `
+            --paths src `
+            src/megafon_desktop/app.py
+
+      - name: Build installer
+        shell: pwsh
+        run: |
+          $version = (Get-Content RELEASE_VERSION -Raw).Trim()
+          $kind = (Get-Content RELEASE_KIND -Raw).Trim()
+          $compiler = Join-Path ${env:ProgramFiles(x86)} "Inno Setup 6\ISCC.exe"
+          & $compiler "/DMyAppVersion=$version" "/DPackageKind=$kind" "packaging\megafon-desktop.iss"
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          $installer = "dist-installer\MegafonDesktop-$kind-v$version.exe"
+          if (-not (Test-Path $installer)) { throw "Installer not found: $installer" }
+          "RELEASE_VERSION=$version" >> $env:GITHUB_ENV
+          "RELEASE_KIND=$kind" >> $env:GITHUB_ENV
+          "INSTALLER_PATH=$installer" >> $env:GITHUB_ENV
+          "INSTALLER_NAME=MegafonDesktop-$kind-v$version.exe" >> $env:GITHUB_ENV
+
+      - name: Upload workflow artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: MegafonDesktop-${{ env.RELEASE_KIND }}-v${{ env.RELEASE_VERSION }}
+          path: ${{ env.INSTALLER_PATH }}
+          if-no-files-found: error
+
+      - name: Publish GitHub Release
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          $tag = "v$env:RELEASE_VERSION"
+          $notes = @"
+          Megafon Desktop $tag
+
+          Windows installer: $env:INSTALLER_NAME
+
+          Installation is per-user under %LOCALAPPDATA%\Programs\Megafon Desktop.
+          Application data remains under %LOCALAPPDATA%\MegaFonDesktop.
+          "@
+          Set-Content -Path release-notes.txt -Value $notes -Encoding UTF8
+
+          gh release view $tag *> $null
+          if ($LASTEXITCODE -eq 0) {
+            gh release upload $tag $env:INSTALLER_PATH --clobber
+          } else {
+            gh release create $tag $env:INSTALLER_PATH `
+              --target $env:GITHUB_SHA `
+              --title "Megafon Desktop $tag" `
+              --notes-file release-notes.txt
+          }
