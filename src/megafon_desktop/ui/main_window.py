@@ -101,7 +101,7 @@ class MainWindow(QMainWindow):
         "Фин. баланс",
         "Статус",
         "Обновлено",
-        "Действие",
+        "Действия",
     )
     STATUS_LABELS: ClassVar[dict[AccountStatus, str]] = {
         AccountStatus.NEW: "Новый",
@@ -117,29 +117,21 @@ class MainWindow(QMainWindow):
         self.service = service
         self.setWindowTitle(f"Megafon Desktop v{__version__}")
         self.setWindowIcon(make_app_icon())
-        self.resize(1040, 580)
+        self.resize(1080, 580)
 
         central = QWidget()
         layout = QVBoxLayout(central)
 
         toolbar = QHBoxLayout()
-        logo = QLabel()
-        logo.setPixmap(make_app_icon().pixmap(30, 30))
-        toolbar.addWidget(logo)
-
         self.add_button = QPushButton("Добавить номер")
-        self.refresh_button = QPushButton("Обновить выбранные")
         self.refresh_all_button = QPushButton("Обновить всё")
         toolbar.addWidget(self.add_button)
-        toolbar.addWidget(self.refresh_button)
         toolbar.addWidget(self.refresh_all_button)
         toolbar.addStretch(1)
         layout.addLayout(toolbar)
 
         self.table = QTableWidget(0, len(self.HEADERS))
         self.table.setHorizontalHeaderLabels(self.HEADERS)
-        self.table.setSelectionBehavior(QTableWidget.SelectionBehavior.SelectRows)
-        self.table.setSelectionMode(QTableWidget.SelectionMode.ExtendedSelection)
         self.table.horizontalHeader().setSectionResizeMode(QHeaderView.ResizeMode.Stretch)
         layout.addWidget(self.table)
 
@@ -148,7 +140,6 @@ class MainWindow(QMainWindow):
         self.setCentralWidget(central)
 
         self.add_button.clicked.connect(self._add_account)
-        self.refresh_button.clicked.connect(self._refresh_selected)
         self.refresh_all_button.clicked.connect(self._refresh_all)
         self.reload()
 
@@ -178,13 +169,25 @@ class MainWindow(QMainWindow):
                 item = QTableWidgetItem(str(value))
                 if column == 0:
                     item.setData(Qt.ItemDataRole.UserRole, account.id)
+                if column == 4 and account.last_error:
+                    item.setToolTip(account.last_error)
                 self.table.setItem(row_index, column, item)
+
+            actions = QWidget()
+            action_layout = QHBoxLayout(actions)
+            action_layout.setContentsMargins(4, 0, 4, 0)
 
             refresh = QPushButton("Обновить")
             refresh.clicked.connect(
                 lambda _checked=False, account_id=account.id: self._refresh_ids([account_id])
             )
-            self.table.setCellWidget(row_index, 6, refresh)
+            delete = QPushButton("Удалить")
+            delete.clicked.connect(
+                lambda _checked=False, account_id=account.id: self._delete_account(account_id)
+            )
+            action_layout.addWidget(refresh)
+            action_layout.addWidget(delete)
+            self.table.setCellWidget(row_index, 6, actions)
 
     def _add_account(self) -> None:
         dialog = AddAccountDialog(self)
@@ -201,14 +204,29 @@ class MainWindow(QMainWindow):
             return
         self.reload()
 
-    def _selected_account_ids(self) -> list[int]:
-        rows = sorted({index.row() for index in self.table.selectionModel().selectedRows()})
-        result: list[int] = []
-        for row in rows:
-            item = self.table.item(row, 0)
-            if item is not None:
-                result.append(int(item.data(Qt.ItemDataRole.UserRole)))
-        return result
+    def _delete_account(self, account_id: int) -> None:
+        try:
+            account = self.service.db.get_account(account_id)
+        except KeyError:
+            self.reload()
+            return
+
+        answer = QMessageBox.question(
+            self,
+            "Удаление номера",
+            f"Удалить номер {account.phone} и его сохранённую авторизацию?",
+            QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
+            QMessageBox.StandardButton.No,
+        )
+        if answer != QMessageBox.StandardButton.Yes:
+            return
+
+        try:
+            self.service.delete_account(account_id)
+        except (OSError, sqlite3.Error, KeyError) as exc:
+            QMessageBox.critical(self, "Не удалось удалить номер", str(exc))
+            return
+        self.reload()
 
     def _solve_captcha(self, image_bytes: bytes) -> str | None:
         self.status_label.setText("Требуется CAPTCHA")
@@ -221,30 +239,36 @@ class MainWindow(QMainWindow):
 
     def _set_refresh_enabled(self, enabled: bool) -> None:
         self.add_button.setEnabled(enabled)
-        self.refresh_button.setEnabled(enabled)
         self.refresh_all_button.setEnabled(enabled)
         self.table.setEnabled(enabled)
 
     def _refresh_ids(self, ids: list[int]) -> None:
         if not ids:
             return
+
+        failures: list[str] = []
         self._set_refresh_enabled(False)
         try:
             for index, account_id in enumerate(ids, start=1):
                 self.status_label.setText(f"Обновление {index}/{len(ids)}")
                 QApplication.processEvents()
-                self.service.refresh(account_id, self._solve_captcha)
+                result = self.service.refresh(account_id, self._solve_captcha)
+                if result.snapshot is None:
+                    detail = result.account.last_error or "неизвестная ошибка"
+                    failures.append(f"{result.account.phone}: {detail}")
         finally:
             self._set_refresh_enabled(True)
-            self.status_label.setText("Готово")
             self.reload()
 
-    def _refresh_selected(self) -> None:
-        ids = self._selected_account_ids()
-        if not ids:
-            QMessageBox.information(self, "Обновление", "Выберите хотя бы один номер.")
-            return
-        self._refresh_ids(ids)
+        if failures:
+            self.status_label.setText("Готово с ошибками")
+            QMessageBox.warning(
+                self,
+                "Обновление не завершено",
+                "\n".join(failures),
+            )
+        else:
+            self.status_label.setText("Готово")
 
     def _refresh_all(self) -> None:
         ids = [account.id for account in self.service.list_accounts() if account.id is not None]
