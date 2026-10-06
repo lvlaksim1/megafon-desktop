@@ -18,3 +18,7 @@ playwright/.auth/
 *.msi
 *.zip
 .env
+*.7z
+*.rar
+*.dll
+*.pdb

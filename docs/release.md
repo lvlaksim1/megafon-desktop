@@ -62,3 +62,15 @@ For each later release:
 Changing `RELEASE_VERSION` triggers the Windows release workflow. It runs tests and lint, builds
 the PyInstaller application, wraps it with Inno Setup and publishes the executable to the current
 GitHub Release.
+
+
+### Hard repository-size gate
+
+The repository also has a mandatory tracked-file guard:
+
+- no tracked file may exceed **5 MiB**;
+- tracked `.exe`, `.msi`, `.zip`, `.7z`, `.rar`, `.dll`, and `.pdb` files are forbidden regardless of size;
+- the check uses `git ls-files`, so forcing an ignored build product into Git with `git add -f` is still rejected;
+- the policy runs as a pytest regression test, therefore both normal CI and the release workflow fail before publication if the repository violates it.
+
+Large distributable files belong only in the single retained current GitHub Release.
