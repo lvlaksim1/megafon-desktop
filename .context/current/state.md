@@ -1,20 +1,23 @@
 # Current state
 
-As of 2026-10-05:
+As of 2026-10-06:
 
-- The authoritative public product repository is `lvlaksim1/megafon-desktop`; project/display name is exactly **Megafon Desktop**.
-- Product authority and manager-state authority are both `main`.
-- Current published version is **v0.2.1**. GitHub Release contains only `MegafonDesktop-Update-v0.2.1.exe` (37,542,042 bytes), SHA-256 `ca81682b6404fcd32bd6e811b203e0e68f24ba29a953593e0b88c6db886c77d9`, target commit `d4dba41cb0acfc4a06267c773b1a0014fc65dd7f`. The prior v0.2.0 release was removed.
-- Product scope is strictly consumer/B2C MegaFon personal cabinet. B2B and official/public MegaFon APIs are out of scope for protocol research.
-- Runtime is **HTTP-only reverse engineering of the consumer web cabinet**. Browser/Playwright may be used only as an external research/capture instrument; it is not a runtime dependency or fallback.
-- Network access is user-triggered only: no automatic account refresh at startup. UI provides per-account **Обновить** plus **Обновить всё**.
-- v0.2.1 implements current frontend bootstrap via `/public/rwlk/service-worker.js` -> active `app.<hash>.js` and extracts `X-Cabinet-Id-Param`, `X-Cabinet-Check-Info`, and `X-Cabinet-Validation-Param`.
-- Manual refresh checks `/api/auth/sessionCheck`; a saved session is reused only when it is authenticated for the requested phone.
-- CAPTCHA auth is one preserved HTTP session: `POST /api/login` -> `a211` -> `GET /api/captcha/next` -> repeat login with `captcha` -> `authenticated:true`.
-- Successful password/CAPTCHA auth is persisted immediately, before balance reads, so a later data endpoint failure does not discard a valid login.
-- Per-account cookie jars/passwords are DPAPI-protected and survive application restarts and update installs.
-- UI cleanup in v0.2.1: added **Удалить** per account with DB/password/auth-state cleanup; removed **Обновить выбранные**; removed the extra toolbar logo beside **Добавить номер**; application/window/shortcut icon remains.
-- Refresh-token renewal is intentionally **not implemented**. Owner directive: do not run refresh-expiry experiments; only implement renewal after finding a proven source of truth that documents or implements the current B2C web-LK refresh mechanism.
-- The observed login still establishes short-lived access/id tokens and long-lived `X-Cabinet-Refresh-Token`, but its renewal endpoint/trigger/rotation remains an evidence gap.
-- v0.2.1 was built and published successfully through the trusted PC Runner Gateway on exact SHA. The contemporaneous GitHub-hosted release/CI jobs were cancelled before running steps and were not treated as code failures.
-- Installation remains per-user under `%LOCALAPPDATA%\Programs\Megafon Desktop`; app data/auth state remains under `%LOCALAPPDATA%\MegaFonDesktop`. Updates preserve app data; full uninstall removes app-owned state.
+- Authoritative repository: `lvlaksim1/megafon-desktop`.
+- Current published version: **v0.3.6**.
+- Release asset: `MegafonDesktop-Update-v0.3.6.exe`, 36,352,321 bytes.
+- SHA-256: `4bf3b7591fffa34ae0812d2b6d9b73320afef342c10b2e391da16582317b5eb1`.
+- Release target: `3bc479cdb988244c6ec82010969f641ab82ecb2b`.
+- CI: 28 tests PASS and ruff PASS. Windows release workflow: tests/lint, PyInstaller, Qt OpenSSL cleanup, frozen-exe startup smoke, Inno Setup and release publish all PASS.
+- The account table remains **Qt Widgets/QTableWidget**, intentionally avoiding the later QML table/reorder branch.
+- Columns remain resizable/movable through the v0.3.0 QHeaderView mechanism.
+- Row ordering no longer relies on a partial drop list. Rows are reordered through the native vertical header and the app writes only a complete unique account-id sequence to SQLite.
+- Normal click selects a cell; left-button drag selects a cell range; table panning by left drag is disabled. Native mouse-wheel scrolling and scrollbars are used.
+- Double click enters cell editing. **Метка** persists to SQLite; server-derived edits remain temporary and disappear on reload.
+- Ctrl+F searches the active table with next/previous navigation.
+- Cell-value hover tooltips are not used.
+- Dark-theme scrollbars are explicitly darkened.
+- The v0.3.1 VBA offer workflow was restored without restoring QML: /personaloffer/game, availableOffers, detail fetch, offer catalog, phone associations, keep/delete rules, title-based inheritance, unknown-offer dialog, reject endpoint and reread after rejection.
+- **Доступные опции** now stores offer-linked options extracted from full offer details, deduplicated by optionId, matching the VBA model rather than /api/options/v2/list.
+- Blocking enable keeps the one-shot behavior: successful POST -> local Да, no immediate verification request. Unblocking resolves the current blocking option id and DELETEs it.
+- The proven HTTP-only B2C auth/sessionCheck/CAPTCHA/DPAPI foundation remains.
+- Refresh-token renewal remains intentionally unimplemented pending a proven current B2C source.
