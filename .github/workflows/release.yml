@@ -1,4 +1,5 @@
 name: Build Windows Installer
+# v0.3.6 stable Widgets-table release gate.
 
 on:
   push:
