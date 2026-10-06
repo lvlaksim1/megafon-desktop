@@ -67,6 +67,13 @@ class ExpenseEvent:
 
 
 @dataclass(slots=True)
+class AvailableOption:
+    option_id: str
+    name: str
+    fields: dict[str, Any] = field(default_factory=dict)
+
+
+@dataclass(slots=True)
 class PersonalOffer:
     offer_id: str
     title: str
@@ -75,17 +82,10 @@ class PersonalOffer:
     full_description: str = ""
     start_at: datetime | None = None
     end_at: datetime | None = None
-
-
-@dataclass(slots=True)
-class AvailableOption:
-    option_id: str
-    name: str
-    fields: dict[str, Any] = field(default_factory=dict)
+    options: list[AvailableOption] = field(default_factory=list)
 
 
 @dataclass(slots=True)
 class AccountRefresh:
     snapshot: AccountSnapshot
     offers: list[PersonalOffer] = field(default_factory=list)
-    available_options: list[AvailableOption] = field(default_factory=list)

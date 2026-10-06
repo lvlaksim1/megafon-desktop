@@ -6,13 +6,7 @@ from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
-from megafon_desktop.domain.models import (
-    Account,
-    AccountSnapshot,
-    AccountStatus,
-    AvailableOption,
-    PersonalOffer,
-)
+from megafon_desktop.domain.models import Account, AccountSnapshot, AccountStatus, PersonalOffer
 
 _SCHEMA = """
 PRAGMA journal_mode=WAL;
@@ -48,14 +42,6 @@ CREATE TABLE IF NOT EXISTS snapshots (
 CREATE INDEX IF NOT EXISTS idx_snapshots_account_time
 ON snapshots(account_id, captured_at DESC);
 
-CREATE TABLE IF NOT EXISTS offer_rules (
-    offer_key TEXT PRIMARY KEY,
-    match_kind TEXT NOT NULL CHECK(match_kind IN ('id', 'title')),
-    action TEXT NOT NULL CHECK(action IN ('keep', 'reject', 'ask')),
-    note TEXT NOT NULL DEFAULT '',
-    updated_at TEXT NOT NULL
-);
-
 CREATE TABLE IF NOT EXISTS offer_catalog (
     offer_id TEXT PRIMARY KEY,
     name TEXT NOT NULL,
@@ -77,9 +63,12 @@ CREATE TABLE IF NOT EXISTS account_offer_state (
     PRIMARY KEY(account_id, offer_id)
 );
 
-CREATE TABLE IF NOT EXISTS available_options (
+CREATE TABLE IF NOT EXISTS offer_options (
     option_id TEXT PRIMARY KEY,
+    offer_id TEXT NOT NULL,
     option_name TEXT NOT NULL DEFAULT '',
+    display_order TEXT NOT NULL DEFAULT '',
+    short_description TEXT NOT NULL DEFAULT '',
     raw_json TEXT NOT NULL,
     first_seen_at TEXT NOT NULL
 );
@@ -106,13 +95,13 @@ class Database:
             "SELECT id,sort_order FROM accounts ORDER BY sort_order,id"
         ).fetchall()
         orders = [int(row["sort_order"]) for row in rows]
-        if rows and len(set(orders)) != len(rows):
-            for index, row in enumerate(rows):
-                self._conn.execute(
-                    "UPDATE accounts SET sort_order=? WHERE id=?",
-                    (index, int(row["id"])),
-                )
-            self._conn.commit()
+        if rows and (len(set(orders)) != len(rows) or sorted(orders) != list(range(len(rows)))):
+            with self._conn:
+                for index, row in enumerate(rows):
+                    self._conn.execute(
+                        "UPDATE accounts SET sort_order=? WHERE id=?",
+                        (index, int(row["id"])),
+                    )
 
     def _ensure_column(self, table: str, column: str, definition: str) -> None:
         names = {
@@ -155,7 +144,9 @@ class Database:
     def delete_account(self, account_id: int) -> None:
         self._conn.execute("DELETE FROM accounts WHERE id=?", (account_id,))
         self._conn.commit()
-        self.set_account_order([account.id for account in self.list_accounts() if account.id])
+        remaining = [account.id for account in self.list_accounts() if account.id is not None]
+        if remaining:
+            self.set_account_order([int(value) for value in remaining])
 
     def get_account(self, account_id: int) -> Account:
         row = self._conn.execute("SELECT * FROM accounts WHERE id=?", (account_id,)).fetchone()
@@ -167,16 +158,25 @@ class Database:
         rows = self._conn.execute("SELECT * FROM accounts ORDER BY sort_order,id").fetchall()
         return [self._account_from_row(row) for row in rows]
 
+    def set_account_label(self, account_id: int, label: str) -> None:
+        self._conn.execute(
+            "UPDATE accounts SET label=? WHERE id=?",
+            (label, account_id),
+        )
+        self._conn.commit()
+
     def set_account_order(self, account_ids: list[int]) -> None:
-        if not account_ids:
-            return
-        existing = {
+        existing = [
             int(row["id"])
-            for row in self._conn.execute("SELECT id FROM accounts").fetchall()
-        }
+            for row in self._conn.execute(
+                "SELECT id FROM accounts ORDER BY sort_order,id"
+            ).fetchall()
+        ]
         supplied = [int(value) for value in account_ids]
-        if set(supplied) != existing or len(supplied) != len(existing):
-            raise ValueError("account order must contain every account exactly once")
+        if not existing and not supplied:
+            return
+        if len(supplied) != len(existing) or set(supplied) != set(existing):
+            raise ValueError("Порядок строк содержит неполный или повторяющийся список аккаунтов")
         with self._conn:
             for position, account_id in enumerate(supplied):
                 self._conn.execute(
@@ -253,7 +253,7 @@ class Database:
             )
             for offer in offers:
                 existing = self._conn.execute(
-                    "SELECT offer_id FROM offer_catalog WHERE offer_id=?",
+                    "SELECT offer_id,descript_full FROM offer_catalog WHERE offer_id=?",
                     (offer.offer_id,),
                 ).fetchone()
                 if existing is None:
@@ -278,9 +278,19 @@ class Database:
                         ),
                     )
                 else:
+                    full = str(existing["descript_full"] or "")
+                    new_full = full or offer.full_description or offer.description
                     self._conn.execute(
-                        "UPDATE offer_catalog SET last_seen_at=? WHERE offer_id=?",
-                        (now, offer.offer_id),
+                        """UPDATE offer_catalog
+                           SET last_seen_at=?,descript_full=?,
+                               descript=CASE WHEN descript='' THEN ? ELSE descript END
+                           WHERE offer_id=?""",
+                        (
+                            now,
+                            new_full,
+                            offer.subtitle or offer.description,
+                            offer.offer_id,
+                        ),
                     )
 
                 self._conn.execute(
@@ -301,6 +311,38 @@ class Database:
                         now,
                     ),
                 )
+                self.sync_offer_options(offer, commit=False)
+
+    def sync_offer_options(self, offer: PersonalOffer, *, commit: bool = True) -> None:
+        now = datetime.now(UTC).isoformat()
+        for option in offer.options:
+            fields = dict(option.fields)
+            short_description = str(fields.get("shortDescription") or "")
+            display_order = str(fields.get("order") or "")
+            self._conn.execute(
+                """INSERT OR IGNORE INTO offer_options(
+                    option_id,offer_id,option_name,display_order,
+                    short_description,raw_json,first_seen_at
+                ) VALUES(?,?,?,?,?,?,?)""",
+                (
+                    option.option_id,
+                    offer.offer_id,
+                    option.name,
+                    display_order,
+                    short_description,
+                    json.dumps(fields, ensure_ascii=False, sort_keys=True),
+                    now,
+                ),
+            )
+        if commit:
+            self._conn.commit()
+
+    def offer_note(self, offer_id: str) -> str:
+        row = self._conn.execute(
+            "SELECT note FROM offer_catalog WHERE offer_id=?",
+            (offer_id,),
+        ).fetchone()
+        return "" if row is None else str(row["note"] or "").strip().lower()
 
     def set_offer_note(self, offer_id: str, note: str) -> None:
         normalized = note.strip().lower()
@@ -329,7 +371,7 @@ class Database:
             """SELECT c.offer_id,c.name,s.start_at,s.end_at
                FROM account_offer_state s
                JOIN offer_catalog c ON c.offer_id=s.offer_id
-               WHERE s.account_id=? AND s.active=1 AND c.note<>'удалить'
+               WHERE s.account_id=? AND s.active=1 AND c.note='оставить'
                ORDER BY c.name COLLATE NOCASE,c.offer_id""",
             (account_id,),
         ).fetchall()
@@ -356,40 +398,22 @@ class Database:
         except ValueError:
             return value
 
-    def sync_available_options(self, options: list[AvailableOption]) -> None:
-        now = datetime.now(UTC).isoformat()
-        with self._conn:
-            for option in options:
-                self._conn.execute(
-                    """INSERT OR IGNORE INTO available_options(
-                        option_id,option_name,raw_json,first_seen_at
-                    ) VALUES(?,?,?,?)""",
-                    (
-                        option.option_id,
-                        option.name,
-                        json.dumps(option.fields, ensure_ascii=False, sort_keys=True),
-                        now,
-                    ),
-                )
-
     def available_option_rows(self) -> list[dict[str, Any]]:
         rows = self._conn.execute(
-            "SELECT option_id,option_name,raw_json FROM available_options "
-            "ORDER BY option_name COLLATE NOCASE"
+            """SELECT offer_id,option_name,option_id,display_order,short_description
+               FROM offer_options
+               ORDER BY option_name COLLATE NOCASE,option_id"""
         ).fetchall()
-        result: list[dict[str, Any]] = []
-        for row in rows:
-            try:
-                fields = json.loads(str(row["raw_json"]))
-            except (TypeError, ValueError, json.JSONDecodeError):
-                fields = {}
-            if not isinstance(fields, dict):
-                fields = {}
-            fields = dict(fields)
-            fields["optionId"] = str(row["option_id"])
-            fields["optionName"] = str(row["option_name"])
-            result.append(fields)
-        return result
+        return [
+            {
+                "id_офера": str(row["offer_id"]),
+                "opt_name": str(row["option_name"]),
+                "id_opt": str(row["option_id"]),
+                "id_order": str(row["display_order"]),
+                "opt_shortDescription": str(row["short_description"]),
+            }
+            for row in rows
+        ]
 
     @staticmethod
     def _account_from_row(row: sqlite3.Row) -> Account:

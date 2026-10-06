@@ -69,6 +69,20 @@ try {
         'src/megafon_desktop/app.py'
     )
 
+    Get-ChildItem -Path 'dist\Megafon Desktop' -Recurse -File |
+        Where-Object { $_.Name -in @('qopensslbackend.dll', 'libcrypto-3-x64.dll', 'libssl-3-x64.dll') } |
+        Remove-Item -Force
+
+    $appExe = Resolve-Path 'dist\Megafon Desktop\Megafon Desktop.exe'
+    $process = Start-Process -FilePath $appExe -ArgumentList '--startup-smoke' -PassThru
+    if (-not $process.WaitForExit(15000)) {
+        Stop-Process -Id $process.Id -Force -ErrorAction SilentlyContinue
+        throw 'Packaged executable did not complete startup smoke test within 15 seconds.'
+    }
+    if ($process.ExitCode -ne 0) {
+        throw "Packaged executable startup smoke test failed with exit code $($process.ExitCode)."
+    }
+
     $programFilesX86 = [Environment]::GetFolderPath('ProgramFilesX86')
     $compilerCandidates = @(
         (Join-Path $programFilesX86 'Inno Setup 6\ISCC.exe'),
@@ -137,13 +151,13 @@ try {
         @"
 Megafon Desktop $tag
 
-- Restored manual "Обновить выбранные"; removed "Обновить всё" and per-row actions.
-- Resizable/movable columns with persisted layout and drag-reorderable account rows.
-- Application-wide System/Light/Dark theme setting.
-- Added latest-action amount/name/date, offers and blocking columns.
-- Added "База оферов" and "Доступные опции" using the legacy VBA data model.
-- Added selected-account number blocking/unblocking using the VBA option mechanism.
-- Preserved the verified HTTP-only B2C authorization/session/CAPTCHA foundation.
+- Kept the stable Qt Widgets table architecture from v0.3.0; no QML account-table runtime.
+- Fixed row-order persistence so only a complete unique account order is written.
+- Added Ctrl+F search, cell/range selection, double-click editing and persistent local account labels.
+- Restored VBA personal-offer game/available/detail/decision/rejection workflow and offer-linked options.
+- Darkened scrollbars and retained native mouse-wheel scrolling.
+- Removed the unused Qt OpenSSL plugin/DLL pair and smoke-tested the frozen executable startup.
+- Preserved HTTP-only B2C authorization/session/CAPTCHA and one-shot blocking behavior.
 - Refresh-token renewal remains intentionally unimplemented pending a proven current source.
 
 Installer: $installerName

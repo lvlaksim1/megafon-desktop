@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import sys
 
+from PySide6.QtCore import QTimer
 from PySide6.QtWidgets import QApplication
 
 from megafon_desktop import __version__
@@ -35,6 +36,8 @@ def main() -> int:
 
     window = MainWindow(build_service(), settings, theme)
     window.show()
+    if "--startup-smoke" in sys.argv:
+        QTimer.singleShot(900, app.quit)
     return app.exec()
 
 

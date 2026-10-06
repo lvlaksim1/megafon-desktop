@@ -1,9 +1,10 @@
 from __future__ import annotations
 
+from collections.abc import Callable
 from dataclasses import dataclass
 from typing import Any
 
-from megafon_desktop.domain.models import Account, AccountSnapshot, AccountStatus
+from megafon_desktop.domain.models import Account, AccountSnapshot, AccountStatus, PersonalOffer
 from megafon_desktop.infra.db import Database
 from megafon_desktop.infra.secret_store import SecretStore
 from megafon_desktop.megafon.errors import (
@@ -13,6 +14,8 @@ from megafon_desktop.megafon.errors import (
     MegafonError,
 )
 from megafon_desktop.megafon.transport import CaptchaSolver, MegafonTransport
+
+OfferDecisionSolver = Callable[[list[PersonalOffer]], dict[str, str] | None]
 
 
 @dataclass(slots=True)
@@ -53,6 +56,9 @@ class AccountService:
     def set_account_order(self, account_ids: list[int]) -> None:
         self.db.set_account_order(account_ids)
 
+    def set_account_label(self, account_id: int, label: str) -> None:
+        self.db.set_account_label(account_id, label)
+
     def offer_rows(self) -> list[dict[str, Any]]:
         return self.db.offer_rows()
 
@@ -82,10 +88,61 @@ class AccountService:
         self.db.update_account_state(account_id, status=status, last_error=str(exc))
         return self.db.get_account(account_id)
 
+    def _process_offers(
+        self,
+        account: Account,
+        password: str,
+        offers: list[PersonalOffer],
+        captcha_solver: CaptchaSolver | None,
+        offer_decider: OfferDecisionSolver | None,
+    ) -> list[PersonalOffer]:
+        assert account.id is not None
+        sent_rejections: set[str] = set()
+
+        for _cycle in range(12):
+            self.db.sync_offers(account.id, offers)
+
+            reject_ids = [
+                offer.offer_id
+                for offer in offers
+                if self.db.offer_note(offer.offer_id) == "удалить"
+                and offer.offer_id not in sent_rejections
+            ]
+            if reject_ids:
+                sent_rejections.update(reject_ids)
+                offers = self.transport.reject_offers(
+                    account.phone,
+                    password,
+                    account.id,
+                    reject_ids,
+                    captcha_solver,
+                )
+                continue
+
+            unknown = [
+                offer for offer in offers if self.db.offer_note(offer.offer_id) == ""
+            ]
+            if unknown and offer_decider is not None:
+                decisions = offer_decider(unknown)
+                if decisions:
+                    changed = False
+                    for offer in unknown:
+                        decision = str(decisions.get(offer.offer_id, "")).strip().lower()
+                        if decision in {"оставить", "удалить"}:
+                            self.db.set_offer_note(offer.offer_id, decision)
+                            changed = True
+                    if changed:
+                        continue
+            break
+
+        self.db.sync_offers(account.id, offers)
+        return offers
+
     def refresh(
         self,
         account_id: int,
         captcha_solver: CaptchaSolver | None = None,
+        offer_decider: OfferDecisionSolver | None = None,
     ) -> RefreshResult:
         account = self.db.get_account(account_id)
         password = self.secrets.get(self._secret_key(account_id))
@@ -99,11 +156,16 @@ class AccountService:
                 account_id,
                 captcha_solver,
             )
+            refreshed.offers = self._process_offers(
+                account,
+                password,
+                refreshed.offers,
+                captcha_solver,
+                offer_decider,
+            )
         except MegafonError as exc:
             return RefreshResult(self._record_error(account_id, exc), None)
 
-        self.db.sync_offers(account_id, refreshed.offers)
-        self.db.sync_available_options(refreshed.available_options)
         refreshed.snapshot.offers_summary = self.db.account_offer_summary(account_id)
         self.db.add_snapshot(refreshed.snapshot)
         self.db.update_account_state(account_id, status=AccountStatus.OK)

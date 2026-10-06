@@ -7,7 +7,7 @@ from datetime import datetime
 from typing import ClassVar
 
 from PySide6.QtCore import QByteArray, Qt, Signal
-from PySide6.QtGui import QAction, QActionGroup, QDropEvent, QPixmap
+from PySide6.QtGui import QAction, QActionGroup, QKeySequence, QPixmap
 from PySide6.QtWidgets import (
     QAbstractItemView,
     QApplication,
@@ -33,7 +33,7 @@ from PySide6.QtWidgets import (
 )
 
 from megafon_desktop import __version__
-from megafon_desktop.domain.models import AccountStatus
+from megafon_desktop.domain.models import AccountStatus, PersonalOffer
 from megafon_desktop.infra.settings import SettingsStore
 from megafon_desktop.services.account_service import AccountService
 from megafon_desktop.ui.icon import make_app_icon
@@ -104,68 +104,198 @@ class CaptchaDialog(QDialog):
         return code or None
 
 
+
+class SearchDialog(QDialog):
+    findRequested = Signal(str, int)
+
+    def __init__(self, parent: QWidget | None = None) -> None:
+        super().__init__(parent)
+        self.setWindowTitle("Поиск по таблице")
+        self.setModal(False)
+        self.setWindowFlag(Qt.WindowType.Tool, True)
+
+        layout = QVBoxLayout(self)
+        self.query = QLineEdit()
+        self.query.setPlaceholderText("Введите текст для поиска")
+        self.query.returnPressed.connect(lambda: self.findRequested.emit(self.query.text(), 1))
+        layout.addWidget(self.query)
+
+        row = QHBoxLayout()
+        previous = QPushButton("Назад")
+        next_button = QPushButton("Далее")
+        close = QPushButton("Закрыть")
+        previous.clicked.connect(lambda: self.findRequested.emit(self.query.text(), -1))
+        next_button.clicked.connect(lambda: self.findRequested.emit(self.query.text(), 1))
+        close.clicked.connect(self.hide)
+        row.addWidget(previous)
+        row.addWidget(next_button)
+        row.addStretch(1)
+        row.addWidget(close)
+        layout.addLayout(row)
+        self.resize(420, 95)
+
+    def show_and_focus(self) -> None:
+        self.show()
+        self.raise_()
+        self.activateWindow()
+        self.query.setFocus()
+        self.query.selectAll()
+
+
+class OfferDecisionDialog(QDialog):
+    def __init__(self, offers: list[PersonalOffer], parent: QWidget | None = None) -> None:
+        super().__init__(parent)
+        self.offers = offers
+        self.setWindowTitle("Неопознанные предложения")
+        self.resize(1100, 520)
+
+        root = QVBoxLayout(self)
+        root.addWidget(
+            QLabel(
+                "Для новых предложений выберите действие. Решение запомнится в базе "
+                "и будет автоматически применяться к этому ID и новым ID с тем же названием."
+            )
+        )
+
+        self.table = QTableWidget(len(offers), 7)
+        self.table.setHorizontalHeaderLabels(
+            ("ID", "Название", "Начало", "Окончание", "Описание", "Полное описание", "Решение")
+        )
+        self.table.setSelectionBehavior(QAbstractItemView.SelectionBehavior.SelectRows)
+        self.table.setEditTriggers(QAbstractItemView.EditTrigger.NoEditTriggers)
+        self.table.horizontalHeader().setSectionResizeMode(QHeaderView.ResizeMode.Interactive)
+        self.table.horizontalHeader().setStretchLastSection(True)
+
+        for row, offer in enumerate(offers):
+            start = "" if offer.start_at is None else offer.start_at.strftime("%d.%m.%Y")
+            end = "" if offer.end_at is None else offer.end_at.strftime("%d.%m.%Y")
+            values = (
+                offer.offer_id,
+                offer.title,
+                start,
+                end,
+                offer.subtitle or offer.description,
+                offer.full_description,
+            )
+            for column, value in enumerate(values):
+                self.table.setItem(row, column, QTableWidgetItem(str(value)))
+            decision = QComboBox()
+            decision.addItems(("", "оставить", "удалить"))
+            self.table.setCellWidget(row, 6, decision)
+
+        root.addWidget(self.table)
+        buttons = QDialogButtonBox(
+            QDialogButtonBox.StandardButton.Ok | QDialogButtonBox.StandardButton.Cancel
+        )
+        buttons.button(QDialogButtonBox.StandardButton.Ok).setText("Применить")
+        buttons.button(QDialogButtonBox.StandardButton.Cancel).setText("Отложить")
+        buttons.accepted.connect(self._accept_if_complete)
+        buttons.rejected.connect(self.reject)
+        root.addWidget(buttons)
+
+        self.table.resizeColumnsToContents()
+        self.table.setColumnWidth(1, max(self.table.columnWidth(1), 210))
+        self.table.setColumnWidth(4, max(self.table.columnWidth(4), 260))
+        self.table.setColumnWidth(5, max(self.table.columnWidth(5), 330))
+
+    def _accept_if_complete(self) -> None:
+        for row in range(self.table.rowCount()):
+            decision = self.table.cellWidget(row, 6)
+            if isinstance(decision, QComboBox) and not decision.currentText():
+                QMessageBox.information(
+                    self,
+                    "Неопознанные предложения",
+                    "Для каждого предложения выберите «оставить» или «удалить», "
+                    "либо нажмите «Отложить».",
+                )
+                return
+        self.accept()
+
+    def decisions(self) -> dict[str, str] | None:
+        if self.exec() != QDialog.DialogCode.Accepted:
+            return None
+        result: dict[str, str] = {}
+        for row, offer in enumerate(self.offers):
+            decision = self.table.cellWidget(row, 6)
+            if isinstance(decision, QComboBox):
+                result[offer.offer_id] = decision.currentText()
+        return result
+
+
 class AccountTable(QTableWidget):
     rowsReordered = Signal(list)
 
     def __init__(self, rows: int, columns: int, parent: QWidget | None = None) -> None:
         super().__init__(rows, columns, parent)
-        self.setSelectionBehavior(QAbstractItemView.SelectionBehavior.SelectRows)
+        self._row_header_sync = False
+        self.setSelectionBehavior(QAbstractItemView.SelectionBehavior.SelectItems)
         self.setSelectionMode(QAbstractItemView.SelectionMode.ExtendedSelection)
-        self.setEditTriggers(QAbstractItemView.EditTrigger.NoEditTriggers)
-        self.setDragEnabled(True)
-        self.setAcceptDrops(True)
-        self.setDropIndicatorShown(True)
-        self.setDragDropOverwriteMode(False)
-        self.setDragDropMode(QAbstractItemView.DragDropMode.InternalMove)
-        self.setDefaultDropAction(Qt.DropAction.MoveAction)
+        self.setEditTriggers(
+            QAbstractItemView.EditTrigger.DoubleClicked
+            | QAbstractItemView.EditTrigger.EditKeyPressed
+            | QAbstractItemView.EditTrigger.SelectedClicked
+        )
+        self.setDragEnabled(False)
+        self.setAcceptDrops(False)
+        self.setDragDropMode(QAbstractItemView.DragDropMode.NoDragDrop)
         self.setAlternatingRowColors(True)
+        self.setMouseTracking(True)
 
-    def account_ids(self) -> list[int]:
+        row_header = self.verticalHeader()
+        row_header.setSectionsMovable(True)
+        row_header.setSectionsClickable(True)
+        row_header.sectionMoved.connect(self._row_section_moved)
+        row_header.sectionClicked.connect(self.selectRow)
+
+    def account_id_for_row(self, row: int) -> int | None:
+        for column in range(self.columnCount()):
+            item = self.item(row, column)
+            if item is None:
+                continue
+            account_id = item.data(Qt.ItemDataRole.UserRole)
+            if account_id is not None:
+                return int(account_id)
+        return None
+
+    def account_ids_visual_order(self) -> list[int]:
         result: list[int] = []
-        for row in range(self.rowCount()):
-            item = self.item(row, 0)
-            if item is not None:
-                account_id = item.data(Qt.ItemDataRole.UserRole)
-                if account_id is not None:
-                    result.append(int(account_id))
+        header = self.verticalHeader()
+        for visual in range(self.rowCount()):
+            logical = header.logicalIndex(visual)
+            account_id = self.account_id_for_row(logical)
+            if account_id is None or account_id in result:
+                return []
+            result.append(account_id)
         return result
 
     def selected_account_ids(self) -> list[int]:
-        rows = sorted({index.row() for index in self.selectionModel().selectedRows()})
+        rows = sorted({index.row() for index in self.selectionModel().selectedIndexes()})
         if not rows and self.currentRow() >= 0:
             rows = [self.currentRow()]
         result: list[int] = []
         for row in rows:
-            item = self.item(row, 0)
-            if item is not None:
-                account_id = item.data(Qt.ItemDataRole.UserRole)
-                if account_id is not None:
-                    result.append(int(account_id))
+            account_id = self.account_id_for_row(row)
+            if account_id is not None and account_id not in result:
+                result.append(account_id)
         return result
 
-    def dropEvent(self, event: QDropEvent) -> None:
-        if event.source() is not self:
-            super().dropEvent(event)
+    def _row_section_moved(self, _logical: int, _old_visual: int, _new_visual: int) -> None:
+        if self._row_header_sync:
             return
+        order = self.account_ids_visual_order()
+        if len(order) == self.rowCount() and len(set(order)) == self.rowCount():
+            self.rowsReordered.emit(order)
 
-        selected_rows = sorted({index.row() for index in self.selectionModel().selectedRows()})
-        if not selected_rows:
-            event.ignore()
-            return
-
-        order = self.account_ids()
-        moved = [order[row] for row in selected_rows]
-        remaining = [value for index, value in enumerate(order) if index not in selected_rows]
-        target = self.indexAt(event.position().toPoint()).row()
-        if target < 0:
-            target = len(order)
-        removed_before = sum(1 for row in selected_rows if row < target)
-        insert_at = max(0, min(len(remaining), target - removed_before))
-        new_order = remaining[:insert_at] + moved + remaining[insert_at:]
-
-        if new_order != order:
-            self.rowsReordered.emit(new_order)
-        event.acceptProposedAction()
+    def reset_row_visual_order(self) -> None:
+        header = self.verticalHeader()
+        self._row_header_sync = True
+        try:
+            for logical in range(self.rowCount()):
+                visual = header.visualIndex(logical)
+                if visual != logical:
+                    header.moveSection(visual, logical)
+        finally:
+            self._row_header_sync = False
 
 
 class OfferNoteDelegate(QStyledItemDelegate):
@@ -219,6 +349,8 @@ class MainWindow(QMainWindow):
         self.theme = theme
         self._header_ready = False
         self._loading_offers = False
+        self._loading_accounts = False
+        self._table_search_state: dict[int, tuple[str, int, int]] = {}
         self.setWindowTitle(f"Megafon Desktop v{__version__}")
         self.setWindowIcon(make_app_icon())
         self.resize(1500, 720)
@@ -272,7 +404,10 @@ class MainWindow(QMainWindow):
         self.offer_table.setItemDelegateForColumn(4, OfferNoteDelegate(self.offer_table))
         self.tabs.addTab(self.offer_table, "База оферов")
 
-        self.options_table = QTableWidget(0, 0)
+        self.options_table = QTableWidget(0, 5)
+        self.options_table.setHorizontalHeaderLabels(
+            ("ID офера", "Название опции", "ID опции", "Порядок", "Краткое описание")
+        )
         self.options_table.setAlternatingRowColors(True)
         self.options_table.setEditTriggers(QAbstractItemView.EditTrigger.NoEditTriggers)
         self.options_table.horizontalHeader().setSectionResizeMode(
@@ -291,7 +426,15 @@ class MainWindow(QMainWindow):
         self.block_button.clicked.connect(lambda: self._set_blocking_selected(True))
         self.unblock_button.clicked.connect(lambda: self._set_blocking_selected(False))
         self.table.rowsReordered.connect(self._rows_reordered)
+        self.table.itemChanged.connect(self._account_item_changed)
         self.offer_table.itemChanged.connect(self._offer_item_changed)
+
+        self.search_dialog = SearchDialog(self)
+        self.search_dialog.findRequested.connect(self._find_text)
+        find_action = QAction(self)
+        find_action.setShortcut(QKeySequence.StandardKey.Find)
+        find_action.triggered.connect(self.search_dialog.show_and_focus)
+        self.addAction(find_action)
 
         self.reload()
         self._restore_header_state()
@@ -360,39 +503,55 @@ class MainWindow(QMainWindow):
 
     def _reload_accounts(self) -> None:
         accounts = self.service.list_accounts()
-        self.table.setRowCount(len(accounts))
-        for row_index, account in enumerate(accounts):
-            assert account.id is not None
-            latest = self.service.db.latest_snapshot(account.id)
-            blocked = None if latest is None else latest["blocked"]
-            values = [
-                account.phone,
-                account.label,
-                "" if latest is None or latest["balance"] is None else latest["balance"],
-                ""
-                if latest is None or latest["commercial_balance"] is None
-                else latest["commercial_balance"],
-                ""
-                if latest is None or latest["last_action_amount"] is None
-                else latest["last_action_amount"],
-                "" if latest is None else latest["last_action_name"] or "",
-                ""
-                if latest is None
-                else self._format_timestamp(latest["last_action_at"]),
-                self.service.db.account_offer_summary(account.id),
-                "" if blocked is None else ("Да" if bool(blocked) else "Нет"),
-                self.STATUS_LABELS.get(account.status, account.status.value),
-                ""
-                if account.last_updated_at is None
-                else account.last_updated_at.astimezone().strftime("%d.%m.%Y %H:%M"),
-            ]
-            for column, value in enumerate(values):
-                item = QTableWidgetItem(str(value))
-                if column == 0:
+        self._loading_accounts = True
+        self.table.blockSignals(True)
+        try:
+            self.table.setRowCount(len(accounts))
+            for row_index, account in enumerate(accounts):
+                assert account.id is not None
+                latest = self.service.db.latest_snapshot(account.id)
+                blocked = None if latest is None else latest["blocked"]
+                values = [
+                    account.phone,
+                    account.label,
+                    "" if latest is None or latest["balance"] is None else latest["balance"],
+                    ""
+                    if latest is None or latest["commercial_balance"] is None
+                    else latest["commercial_balance"],
+                    ""
+                    if latest is None or latest["last_action_amount"] is None
+                    else latest["last_action_amount"],
+                    "" if latest is None else latest["last_action_name"] or "",
+                    ""
+                    if latest is None
+                    else self._format_timestamp(latest["last_action_at"]),
+                    self.service.db.account_offer_summary(account.id),
+                    "" if blocked is None else ("Да" if bool(blocked) else "Нет"),
+                    self.STATUS_LABELS.get(account.status, account.status.value),
+                    ""
+                    if account.last_updated_at is None
+                    else account.last_updated_at.astimezone().strftime("%d.%m.%Y %H:%M"),
+                ]
+                for column, value in enumerate(values):
+                    item = QTableWidgetItem(str(value))
                     item.setData(Qt.ItemDataRole.UserRole, account.id)
-                if column == 9 and account.last_error:
-                    item.setToolTip(account.last_error)
-                self.table.setItem(row_index, column, item)
+                    self.table.setItem(row_index, column, item)
+            self.table.reset_row_visual_order()
+        finally:
+            self.table.blockSignals(False)
+            self._loading_accounts = False
+
+    def _account_item_changed(self, item: QTableWidgetItem) -> None:
+        if self._loading_accounts or item.column() != 1:
+            return
+        account_id = item.data(Qt.ItemDataRole.UserRole)
+        if account_id is None:
+            return
+        try:
+            self.service.set_account_label(int(account_id), item.text())
+        except (KeyError, sqlite3.Error) as exc:
+            QMessageBox.warning(self, "Метка", str(exc))
+            self._reload_accounts()
 
     def _reload_offers(self) -> None:
         rows = self.service.offer_rows()
@@ -422,23 +581,27 @@ class MainWindow(QMainWindow):
 
     def _reload_options(self) -> None:
         rows = self.service.available_option_rows()
-        keys = {key for row in rows for key in row}
-        leading = [key for key in ("optionId", "optionName") if key in keys]
-        columns = leading + sorted(keys.difference(leading), key=str.casefold)
-        self.options_table.setColumnCount(len(columns))
-        self.options_table.setHorizontalHeaderLabels(columns)
         self.options_table.setRowCount(len(rows))
+        keys = (
+            "id_офера",
+            "opt_name",
+            "id_opt",
+            "id_order",
+            "opt_shortDescription",
+        )
         for row_index, row in enumerate(rows):
-            for column, key in enumerate(columns):
-                value = row.get(key, "")
-                if isinstance(value, (dict, list)):
-                    value = json.dumps(value, ensure_ascii=False, sort_keys=True)
-                self.options_table.setItem(row_index, column, QTableWidgetItem(str(value)))
-        if rows and columns:
+            for column, key in enumerate(keys):
+                self.options_table.setItem(
+                    row_index,
+                    column,
+                    QTableWidgetItem(str(row.get(key, ""))),
+                )
+        if rows:
             self.options_table.resizeColumnsToContents()
             for column in range(self.options_table.columnCount()):
                 self.options_table.setColumnWidth(
-                    column, min(max(self.options_table.columnWidth(column), 90), 360)
+                    column,
+                    min(max(self.options_table.columnWidth(column), 90), 360),
                 )
 
     def _offer_item_changed(self, item: QTableWidgetItem) -> None:
@@ -519,6 +682,11 @@ class MainWindow(QMainWindow):
             QMessageBox.critical(self, "CAPTCHA", str(exc))
             return None
 
+    def _decide_offers(self, offers: list[PersonalOffer]) -> dict[str, str] | None:
+        self.status_label.setText("Найдены новые предложения")
+        QApplication.processEvents()
+        return OfferDecisionDialog(offers, self).decisions()
+
     def _set_busy(self, enabled: bool) -> None:
         for widget in (
             self.add_button,
@@ -538,7 +706,11 @@ class MainWindow(QMainWindow):
             for index, account_id in enumerate(ids, start=1):
                 self.status_label.setText(f"Обновление {index}/{len(ids)}")
                 QApplication.processEvents()
-                result = self.service.refresh(account_id, self._solve_captcha)
+                result = self.service.refresh(
+                    account_id,
+                    self._solve_captcha,
+                    self._decide_offers,
+                )
                 if result.snapshot is None:
                     detail = result.account.last_error or "неизвестная ошибка"
                     failures.append(f"{result.account.phone}: {detail}")
@@ -585,8 +757,59 @@ class MainWindow(QMainWindow):
             self.status_label.setText("Готово")
 
     def _rows_reordered(self, account_ids: list[int]) -> None:
+        if len(account_ids) != self.table.rowCount() or len(set(account_ids)) != len(account_ids):
+            return
         try:
             self.service.set_account_order(account_ids)
         except (ValueError, sqlite3.Error) as exc:
             QMessageBox.warning(self, "Порядок строк", str(exc))
+            return
+        self.table.reset_row_visual_order()
         self._reload_accounts()
+
+    def _find_text(self, query: str, direction: int) -> None:
+        if not query.strip():
+            return
+        table = (
+            self.table
+            if self.tabs.currentIndex() == 0
+            else self.offer_table
+            if self.tabs.currentIndex() == 1
+            else self.options_table
+        )
+        found = self._find_in_widget_table(table, query, direction)
+        self.status_label.setText("Найдено совпадение" if found else f"Текст «{query}» не найден")
+
+    def _find_in_widget_table(
+        self,
+        table: QTableWidget,
+        query: str,
+        direction: int,
+    ) -> bool:
+        needle = query.casefold().strip()
+        matches: list[tuple[int, int]] = []
+        for row in range(table.rowCount()):
+            for column in range(table.columnCount()):
+                item = table.item(row, column)
+                if item is not None and needle in item.text().casefold():
+                    matches.append((row, column))
+        if not matches:
+            return False
+
+        key = id(table)
+        old_query, row, column = self._table_search_state.get(key, ("", -1, -1))
+        try:
+            current_index = matches.index((row, column)) if old_query == query else -1
+        except ValueError:
+            current_index = -1
+        next_index = (
+            (current_index + 1) % len(matches)
+            if direction >= 0
+            else (current_index - 1) % len(matches)
+        )
+        row, column = matches[next_index]
+        self._table_search_state[key] = (query, row, column)
+        table.setCurrentCell(row, column)
+        table.scrollToItem(table.item(row, column), QAbstractItemView.ScrollHint.PositionAtCenter)
+        table.setFocus()
+        return True

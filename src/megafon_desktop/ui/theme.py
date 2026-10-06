@@ -29,6 +29,7 @@ class ThemeController:
             if style is not None:
                 self.app.setStyle(style)
             self.app.setPalette(QPalette())
+            self.app.setStyleSheet("")
             return
 
         scheme = Qt.ColorScheme.Light if theme == "light" else Qt.ColorScheme.Dark
@@ -38,6 +39,7 @@ class ThemeController:
         if fusion is not None:
             self.app.setStyle(fusion)
         self.app.setPalette(self._light_palette() if theme == "light" else self._dark_palette())
+        self.app.setStyleSheet("" if theme == "light" else self._dark_stylesheet())
 
     def _system_scheme_changed(self, _scheme: Qt.ColorScheme) -> None:
         if self.current == "system":
@@ -67,6 +69,43 @@ class ThemeController:
             QPalette.ColorGroup.Disabled, QPalette.ColorRole.ButtonText, QColor(140, 140, 140)
         )
         return palette
+
+    @staticmethod
+    def _dark_stylesheet() -> str:
+        return """
+        QScrollBar:vertical {
+            background: #181818;
+            width: 12px;
+            margin: 0;
+            border: 1px solid #242424;
+        }
+        QScrollBar::handle:vertical {
+            background: #444444;
+            min-height: 28px;
+            border-radius: 5px;
+            margin: 1px;
+        }
+        QScrollBar::handle:vertical:hover { background: #555555; }
+        QScrollBar:horizontal {
+            background: #181818;
+            height: 12px;
+            margin: 0;
+            border: 1px solid #242424;
+        }
+        QScrollBar::handle:horizontal {
+            background: #444444;
+            min-width: 28px;
+            border-radius: 5px;
+            margin: 1px;
+        }
+        QScrollBar::handle:horizontal:hover { background: #555555; }
+        QScrollBar::add-line, QScrollBar::sub-line {
+            width: 0;
+            height: 0;
+            background: transparent;
+        }
+        QScrollBar::add-page, QScrollBar::sub-page { background: transparent; }
+        """
 
     @staticmethod
     def _dark_palette() -> QPalette:

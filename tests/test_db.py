@@ -35,30 +35,55 @@ def test_phone_normalization_snapshot_and_account_order(tmp_path):
     assert [account.id for account in db.list_accounts()] == [second.id, first.id]
 
 
-def test_offer_base_inherits_note_and_option_catalog_is_unique(tmp_path):
+def test_offer_base_inherits_note_and_offer_options_are_unique_by_option_id(tmp_path):
     db = Database(tmp_path / "test.db")
     account = db.add_account("89991234567")
     assert account.id is not None
 
-    first = PersonalOffer("offer-1", "Один тариф", subtitle="Описание")
+    first = PersonalOffer(
+        "offer-1",
+        "Один тариф",
+        subtitle="Описание",
+        options=[
+            AvailableOption(
+                "o1",
+                "Опция",
+                {
+                    "optionId": "o1",
+                    "optionName": "Опция",
+                    "shortDescription": "Коротко",
+                    "order": 7,
+                },
+            )
+        ],
+    )
     db.sync_offers(account.id, [first])
     db.set_offer_note("offer-1", "оставить")
 
-    second = PersonalOffer("offer-2", "Один тариф", subtitle="Новое описание")
+    second = PersonalOffer(
+        "offer-2",
+        "Один тариф",
+        subtitle="Новое описание",
+        options=[
+            AvailableOption(
+                "o1",
+                "Опция 2",
+                {"optionId": "o1", "optionName": "Опция 2", "order": 99},
+            )
+        ],
+    )
     db.sync_offers(account.id, [second])
     rows = {row["offer_id"]: row for row in db.offer_rows()}
     assert rows["offer-2"]["note"] == "оставить"
     assert "79991234567" in rows["offer-2"]["phones"]
 
-    db.sync_available_options(
-        [
-            AvailableOption("o1", "Опция", {"optionId": "o1", "optionName": "Опция", "price": 5}),
-            AvailableOption("o1", "Опция 2", {"optionId": "o1", "optionName": "Опция 2"}),
-        ]
-    )
     options = db.available_option_rows()
     assert len(options) == 1
-    assert options[0]["optionName"] == "Опция"
+    assert options[0]["id_офера"] == "offer-1"
+    assert options[0]["opt_name"] == "Опция"
+    assert options[0]["id_opt"] == "o1"
+    assert options[0]["id_order"] == "7"
+    assert options[0]["opt_shortDescription"] == "Коротко"
 
 
 @pytest.mark.parametrize("value", ["123", "7999", "+1 555 123 4567"])

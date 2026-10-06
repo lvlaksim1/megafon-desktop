@@ -1,5 +1,5 @@
 #ifndef MyAppVersion
-  #define MyAppVersion "0.3.0"
+  #define MyAppVersion "0.3.6"
 #endif
 #ifndef PackageKind
   #define PackageKind "Update"

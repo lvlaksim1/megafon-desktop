@@ -49,6 +49,26 @@ jobs:
             --paths src `
             src/megafon_desktop/app.py
 
+      - name: Remove unused Qt OpenSSL backend
+        shell: pwsh
+        run: |
+          Get-ChildItem -Path "dist\Megafon Desktop" -Recurse -File |
+            Where-Object { $_.Name -in @("qopensslbackend.dll", "libcrypto-3-x64.dll", "libssl-3-x64.dll") } |
+            Remove-Item -Force
+
+      - name: Smoke-test packaged executable startup
+        shell: pwsh
+        run: |
+          $exe = Resolve-Path "dist\Megafon Desktop\Megafon Desktop.exe"
+          $process = Start-Process -FilePath $exe -ArgumentList "--startup-smoke" -PassThru
+          if (-not $process.WaitForExit(15000)) {
+            Stop-Process -Id $process.Id -Force -ErrorAction SilentlyContinue
+            throw "Packaged executable did not complete startup smoke test within 15 seconds."
+          }
+          if ($process.ExitCode -ne 0) {
+            throw "Packaged executable startup smoke test failed with exit code $($process.ExitCode)."
+          }
+
       - name: Build installer
         shell: pwsh
         run: |
@@ -76,8 +96,10 @@ jobs:
           HTTP-only authorization: no browser runtime dependency.
           Persistent per-account authorization is stored with Windows DPAPI.
           Interactive CAPTCHA is shown inside the application and resumes the same refresh.
-          Manual per-account, selected-account and "Update all" refresh controls.
-          New application/shortcut/installer icon.
+          Stable Qt Widgets account table retained from v0.3.0; no QML table runtime.
+          Cell selection/editing/search and native row/column movement are supported without animation.
+          VBA personal-offer decisions and offer-linked options catalog restored.
+          Packaged startup is smoke-tested after removing the unused Qt OpenSSL backend.
 
           Windows installer: $env:INSTALLER_NAME
 

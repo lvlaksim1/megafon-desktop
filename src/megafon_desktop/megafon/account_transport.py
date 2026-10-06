@@ -6,7 +6,7 @@ from urllib.parse import quote
 
 import requests
 
-from megafon_desktop.domain.models import AccountRefresh, AccountSnapshot
+from megafon_desktop.domain.models import AccountRefresh, AccountSnapshot, PersonalOffer
 
 from .errors import AuthenticationError, ProtocolChanged
 from .http_transport import DirectHttpTransport
@@ -31,6 +31,13 @@ class AccountHttpTransport(DirectHttpTransport):
         "/aggregated/services",
         "/aggregated/subscription",
         "/aggregated/sms",
+    )
+    OFFER_GAME_LIMIT = 100
+    OFFER_GAME_STOP_MARKERS = (
+        "pers.82",
+        "что-то пошло не так",
+        "error.00",
+        "возникла ошибка",
     )
 
     def _authenticated_context(
@@ -180,12 +187,40 @@ class AccountHttpTransport(DirectHttpTransport):
                 payloads.append(value)
         return tuple(payloads)
 
+    def _prime_personal_offers(
+        self,
+        session: requests.Session,
+        api_base: str,
+        frontend_headers: dict[str, str],
+    ) -> None:
+        """Mirror VBA's /personaloffer/game loop before reading available offers."""
+        for _attempt in range(self.OFFER_GAME_LIMIT):
+            try:
+                response = session.get(
+                    f"{api_base}/api/personaloffer/game",
+                    headers=self._account_headers(frontend_headers),
+                    timeout=self.timeout,
+                )
+            except requests.RequestException:
+                return
+            if response.status_code in {401, 403}:
+                raise AuthenticationError("session rejected by /api/personaloffer/game")
+            body = str(response.text or "").casefold()
+            if response.status_code >= 400:
+                return
+            if "авторизуйтесь, чтобы продолжить" in body:
+                raise AuthenticationError("MegaFon requested authorization for personal offers")
+            if any(marker in body for marker in self.OFFER_GAME_STOP_MARKERS):
+                return
+
     def _read_offers(
         self,
         session: requests.Session,
         api_base: str,
         frontend_headers: dict[str, str],
-    ):
+    ) -> list[PersonalOffer]:
+        self._prime_personal_offers(session, api_base, frontend_headers)
+
         payload = self._request_json(
             session,
             api_base,
@@ -199,11 +234,13 @@ class AccountHttpTransport(DirectHttpTransport):
                 session,
                 api_base,
                 frontend_headers,
-                f"/api/personaloffer/v2/{quote(offer.offer_id, safe='')}?channel=PERSONAL_OFFERS",
+                f"/api/personaloffer/v2/{quote(offer.offer_id, safe='')}",
+                params={"channel": "PERSONAL_OFFERS"},
                 optional=True,
             )
             if detail is not None:
                 offer.full_description = offer_full_description(detail)
+                offer.options = parse_available_options(detail)
         return offers
 
     def refresh_account(
@@ -252,18 +289,6 @@ class AccountHttpTransport(DirectHttpTransport):
             if current_options is None
             else current_option_id(current_options, self.BLOCKING_OPTION_NAME) is not None
         )
-
-        available_payload = self._request_json(
-            session,
-            api_base,
-            frontend_headers,
-            "/api/options/v2/list",
-            params={"showVASP": "false"},
-            optional=True,
-        )
-        available_options = (
-            [] if available_payload is None else parse_available_options(available_payload)
-        )
         offers = self._read_offers(session, api_base, frontend_headers)
 
         snapshot = AccountSnapshot(
@@ -278,7 +303,42 @@ class AccountHttpTransport(DirectHttpTransport):
             blocked=blocked,
         )
         self._save_session(account_id, session)
-        return AccountRefresh(snapshot, offers, available_options)
+        return AccountRefresh(snapshot, offers)
+
+    def reject_offers(
+        self,
+        phone: str,
+        password: str,
+        account_id: int,
+        offer_ids: list[str],
+        captcha_solver: CaptchaSolver | None = None,
+    ) -> list[PersonalOffer]:
+        session, api_base, frontend_headers = self._authenticated_context(
+            phone,
+            password,
+            account_id,
+            captcha_solver,
+        )
+        for offer_id in dict.fromkeys(offer_ids):
+            path = f"/api/personaloffer/rejected/{quote(str(offer_id), safe='')}"
+            try:
+                response = session.post(
+                    f"{api_base}{path}",
+                    params={"channel": "PERSONAL_OFFERS"},
+                    headers=self._account_headers(frontend_headers, session=session),
+                    timeout=self.timeout,
+                )
+            except requests.RequestException as exc:
+                raise ProtocolChanged(f"failed to reject personal offer {offer_id}: {exc}") from exc
+            if response.status_code in {401, 403}:
+                raise AuthenticationError("session rejected while rejecting personal offer")
+            if response.status_code >= 400:
+                raise ProtocolChanged(
+                    f"reject personal offer {offer_id} failed: {self._response_error(response)}"
+                )
+
+        self._save_session(account_id, session)
+        return self._read_offers(session, api_base, frontend_headers)
 
     def set_blocking(
         self,
@@ -318,6 +378,8 @@ class AccountHttpTransport(DirectHttpTransport):
                 raise ProtocolChanged(
                     f"enable blocking failed: {self._response_error(response)}"
                 )
+            self._save_session(account_id, session)
+            return True
 
         if not enabled and current_id is not None:
             path = f"/api/options/{quote(current_id, safe='')}"
@@ -340,10 +402,5 @@ class AccountHttpTransport(DirectHttpTransport):
                     f"disable blocking failed: {self._response_error(response)}"
                 )
 
-        verified = self._current_options(session, api_base, frontend_headers)
-        actual = current_option_id(verified, self.BLOCKING_OPTION_NAME) is not None
         self._save_session(account_id, session)
-        if actual != enabled:
-            action = "enable" if enabled else "disable"
-            raise ProtocolChanged(f"MegaFon did not confirm blocking {action}")
-        return actual
+        return enabled

@@ -23,11 +23,13 @@ class MutationSession:
         self.option_states = list(option_states)
         self.posts: list[tuple[str, dict[str, str]]] = []
         self.deletes: list[tuple[str, dict[str, str]]] = []
+        self.get_count = 0
 
     def get(self, url, *, params, headers, timeout):
         del headers, timeout
         assert url.endswith("/api/options/list/current")
         assert params == {"showVASP": "true"}
+        self.get_count += 1
         return FakeResponse(200, self.option_states.pop(0))
 
     def post(self, url, *, data, headers, timeout):
@@ -57,15 +59,12 @@ class TestTransport(AccountHttpTransport):
         }
 
 
-def test_blocking_uses_vba_connect_option_id_and_csrf():
-    blocked_payload = {
-        "paid": [],
-        "free": [{"optionId": "actual-block-id", "optionName": "Блокировка номера"}],
-    }
-    session = MutationSession([{"paid": [], "free": []}, blocked_payload])
+def test_blocking_uses_vba_connect_option_id_without_followup_verification():
+    session = MutationSession([{"paid": [], "free": []}])
     transport = TestTransport(session)
 
     assert transport.set_blocking("79991234567", "secret", 1, True) is True
+    assert session.get_count == 1
     assert len(session.posts) == 1
     url, headers = session.posts[0]
     assert url.endswith("/api/options/Q0L16QxY-nvN6dgAV04woA")
@@ -73,15 +72,16 @@ def test_blocking_uses_vba_connect_option_id_and_csrf():
     assert headers["X-Cabinet-Capabilities"] == "authentication-2020"
 
 
-def test_unblocking_deletes_actual_current_option_id():
+def test_unblocking_deletes_actual_current_option_id_without_followup_verification():
     blocked_payload = {
         "paid": [],
         "free": [{"optionId": "runtime-block-id", "optionName": "Блокировка номера"}],
     }
-    session = MutationSession([blocked_payload, {"paid": [], "free": []}])
+    session = MutationSession([blocked_payload])
     transport = TestTransport(session)
 
     assert transport.set_blocking("79991234567", "secret", 1, False) is False
+    assert session.get_count == 1
     assert len(session.deletes) == 1
     url, headers = session.deletes[0]
     assert url.endswith("/api/options/runtime-block-id")
