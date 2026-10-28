@@ -33,3 +33,11 @@
 - All post-initial releases are executable update installers preserving app data/auth state. v0.2.1 was successfully built/published via the trusted PC Runner Gateway at exact SHA `d4dba41cb0acfc4a06267c773b1a0014fc65dd7f`.
   - source: verified release + PC Gateway result
   - authority: verified-repository
+
+## Актуализация после выпуска v0.3.6 (28.10.2026)
+- Последний публичный стабильный выпуск на момент проверки — `v0.3.6`, опубликован 06.10.2026. GitHub Release содержит `MegafonDesktop-Update-v0.3.6.exe` размером 36 352 321 байт, целевой коммит `3bc479cdb988244c6ec82010969f641ab82ecb2b`. Более ранние сведения о v0.2.1 выше остаются историей развития и не обозначают текущий выпуск.
+  - source: https://github.com/lvlaksim1/megafon-desktop/releases/tag/v0.3.6 ; `.context/current/state.md`
+  - authority: verified-repository
+- Для v0.3.6 зафиксирована архитектура таблицы Qt Widgets/QTableWidget и восстановленный механизм предложений из VBA; пользовательская приёмка v0.3.6 отдельно не подтверждена.
+  - source: `.context/current/state.md`; `.context/handoffs/latest.md`; `.context/current/next.md`
+  - authority: verified-repository (описание опубликованной реализации); отсутствие подтверждения приёмки
