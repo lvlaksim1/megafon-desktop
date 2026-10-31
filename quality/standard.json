@@ -12,5 +12,18 @@
       "timeout_sec": 65
     }
   ],
-  "full_additional": []
+  "full_additional": [
+    {
+      "id": "parser_synthetic",
+      "kind": "sandbox",
+      "command": [
+        "python",
+        "-m",
+        "pytest",
+        "tests/test_parsers.py",
+        "-q"
+      ],
+      "timeout_sec": 90
+    }
+  ]
 }
